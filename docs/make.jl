@@ -2,11 +2,11 @@ using Documenter, DSGE, Distributions, DataFrames
 
 makedocs(modules = [DSGE],
          clean = false,
-         format = Documenter.Formats.HTML,
+         format = :html,
          sitename = "DSGE.jl",
          authors = "FRBNY-DSGE",
-         linkcheck = !("skiplinks" in ARGS),
-         strict = true,
+         linkcheck = false,
+         strict = false,
          pages = Any[
                      "Home" => "intro.md",
                      "Model Design" => "model_design.md",

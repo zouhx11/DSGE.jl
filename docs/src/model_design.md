@@ -12,7 +12,7 @@ The following objects define a model:
 - **Parameters**: Have values, bounds, fixed-or-not status, priors. An
   instance of the `AbstractParameter` type houses all information about a given
   parameter in a single data structure.
-- **States**: Mappings of names to indices (e.g. `π_t` ➜ 1).
+- **States**: Mappings of names to indices (e.g. `π_t` -> 1).
 - **Equilibrium Conditions**: A function that takes parameters and model
   indices, then returns `Γ0`, `Γ1`, `C`, `Ψ`, and `Π` (which fully describe the
   model in canonical form).
@@ -22,9 +22,9 @@ These are enough to define the model structure. _Everything else_ is essentially
 a function of these basics, and we can solve the model and forecast observables
 via the following chain:
 
-- Parameters + Model Indices + Equilibrium conditions ➜ Transition matrices
+- Parameters + Model Indices + Equilibrium conditions -> Transition matrices
   in state-space form
-- Transition matrices + Data ➜ Estimated parameter values
-- Estimated parameters + Transition matrices + Data ➜ Forecast (not yet
+- Transition matrices + Data -> Estimated parameter values
+- Estimated parameters + Transition matrices + Data -> Forecast (not yet
   implemented)
 
