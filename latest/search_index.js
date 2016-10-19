@@ -1,7 +1,7 @@
 var documenterSearchIndex = {"docs": [
 
 {
-    "location": "intro.html#",
+    "location": "index.html#",
     "page": "Home",
     "title": "Home",
     "category": "page",
@@ -9,7 +9,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "intro.html#DSGE.jl-1",
+    "location": "index.html#DSGE.jl-1",
     "page": "Home",
     "title": "DSGE.jl",
     "category": "section",
@@ -17,7 +17,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "intro.html#Table-of-Contents-1",
+    "location": "index.html#Table-of-Contents-1",
     "page": "Home",
     "title": "Table of Contents",
     "category": "section",
@@ -25,7 +25,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "intro.html#Acknowledgements-1",
+    "location": "index.html#Acknowledgements-1",
     "page": "Home",
     "title": "Acknowledgements",
     "category": "section",
