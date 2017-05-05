@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Table of Contents",
     "category": "section",
-    "text": "Pages = [\n  \"model_design.md\",\n  \"running_existing_model.md\",\n  \"advanced_usage.md\",\n  \"input_data.md\",\n  \"frbny_data.md\",\n  \"implementation_details.md\",\n  \"solving.md\",\n  \"estimation.md\",\n  \"contributing.md\",\n  \"license.md\"\n]"
+    "text": "Pages = [\n  \"model_design.md\",\n  \"running_existing_model.md\",\n  \"advanced_usage.md\",\n  \"input_data.md\",\n  \"frbny_data.md\",\n  \"implementation_details.md\",\n  \"solving.md\",\n  \"estimation.md\",\n  \"forecast.md\",\n  \"means_bands.md\",\n  \"contributing.md\",\n  \"license.md\"\n]"
 },
 
 {
@@ -45,7 +45,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Model Design",
     "title": "Model Design",
     "category": "section",
-    "text": "DSGE.jl is an object-oriented approach to solving the FRBNY DSGE model that takes advantage of Julia's type system, multiple dispatch, package-handling mechanism, and other features. A single model object centralizes all information about the model's parameters, states, equilibrium conditions, and settings in a single data structure. The model object also keeps track of file locations for all I/O operations.The following objects define a model:Parameters\n: Have values, bounds, fixed-or-not status, priors. An   instance of the \nAbstractParameter\n type houses all information about a given   parameter in a single data structure.\nStates\n: Mappings of names to indices (e.g. \nπ_t\n -> 1).\nEquilibrium Conditions\n: A function that takes parameters and model   indices, then returns \nΓ0\n, \nΓ1\n, \nC\n, \nΨ\n, and \nΠ\n (which fully describe the   model in canonical form).\nMeasurement Equation\n: A function mapping states to observables.These are enough to define the model structure. _Everything else_ is essentially a function of these basics, and we can solve the model and forecast observables via the following chain:Parameters + Model Indices + Equilibrium conditions -> Transition matrices   in state-space form\nTransition matrices + Data -> Estimated parameter values\nEstimated parameters + Transition matrices + Data -> Forecast (not yet   implemented)"
+    "text": "DSGE.jl is an object-oriented approach to solving the FRBNY DSGE model that takes advantage of Julia's type system, multiple dispatch, package-handling mechanism, and other features. A single model object centralizes all information about the model's parameters, states, equilibrium conditions, and settings in a single data structure. The model object also keeps track of file locations for all I/O operations.The following objects define a model:Parameters\n: Have values, bounds, fixed-or-not status, priors. An   instance of the \nAbstractParameter\n type houses all information about a given   parameter in a single data structure. See   \nThe AbstractParameter Type\n.\nModel Indices\n: Mappings of state, shock, observable, and pseudo-observable   names to indices (e.g. \ny_t\n -> 1). See \nDefining Indices\n.\nObservables and PseudoObservables\n: Mapping of names to indices, as well as   information necessary for transformations. See   \nThe Observable and PseudoObservable Types\n.\nEquilibrium Conditions\n: A function that takes parameters and model   indices, then returns \nΓ0\n, \nΓ1\n, \nC\n, \nΨ\n, and \nΠ\n (which fully describe the   model in canonical form).\nMeasurement Equation\n: A function mapping states to observables.\nPseudo-Measurement Equation\n: A function mapping states to what we call   \"pseudo-observables\", i.e. linear combinations of existing states which are   not observed. (Note that this is not strictly required to implement a model,   but we often use the pseudo-measurement equation instead of adding new states   in order to achieve a more parsimonious model.)These are enough to define the model structure. Everything else is essentially a function of these basics, and we can solve the model and forecast observables via the following chain:Parameters + Model Indices + Equilibrium conditions -> Transition matrices   in state-space form\nTransition matrices + Data -> Estimated parameter values\nEstimated parameters + Transition matrices + Data -> Forecast"
 },
 
 {
@@ -61,7 +61,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Running An Existing Model",
     "title": "Running an Existing Model",
     "category": "section",
-    "text": "The DSGE.jl package provides 2 example models:The well-known \nSmets and Wouters (2007)\n Model\nThe FRBNY DSGE Model (version 990.2), which was introduced in \nthis blog postYou can run these models using the description provided here. If you were to implement another model using DSGE.jl, these procedures can also be used to estimate those models."
+    "text": "The DSGE.jl package provides several example models:A simple three-equation DSGE model from \nAn and Schorfheide (2006)\nThe well-known \nSmets and Wouters (2007)\n model\nThe FRBNY DSGE model (version 990.2), which was introduced in \nthis blog post\nThe FRBNY DSGE model (version 1002.9), which is documented \nhere\nThe FRBNY DSGE model (version 1010.18)You can run these models using the description provided here. If you were to implement another model using DSGE.jl, these procedures can also be used to estimate those models."
 },
 
 {
@@ -69,7 +69,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Running An Existing Model",
     "title": "Running with Default Settings",
     "category": "section",
-    "text": "To run the estimation step in Julia, simply create an instance of the model object and pass it to the estimate function – see an example.# construct a model object\nm = Model990()\n\n# estimate as of 2015-Q3 using the default data vintage from 2015 Nov 27\nm <= Setting(:data_vintage, \"151127\")\nm <= Setting(:date_mainsample_end, quartertodate(\"2015-Q3\"))\n\n# reoptimize parameter vector, compute Hessian at mode, and full posterior\n# parameter sampling\nestimate(m)\n\n# produce LaTeX tables of parameter moments\ncompute_moments(m)By default, the estimate routine loads the dataset, reoptimizes the initial parameter vector, computes the Hessian at the mode, and conducts full posterior parameter sampling. (The initial parameter vector used is specified in the model's constructor.)To use updated data or alternative user-specified datasets, see Input Data.The user may want to avoid reoptimizing the parameter vector and calculating the Hessian matrix at this new vector. Please see Reoptimizing.For more details on changing the model's default settings, parameters, equilibrium conditions, etc., see Advanced Usage."
+    "text": "To estimate and forecast in Julia, simply create an instance of the model object and call estimate and forecast_all. A minimal example is reproduced below:# estimate as of 2015-Q3 using the default data vintage from 2015 Nov 27\ncustom_settings = Dict{Symbol, Setting}(\n    :data_vintage        => Setting(:data_vintage, \"151127\"),\n    :date_forecast_start => Setting(:date_forecast_start, quartertodate(\"2015-Q4\")))\n\n# construct a model object\nm = Model990(custom_settings = custom_settings)\n\n# reoptimize parameter vector, compute Hessian at mode, and full posterior\n# parameter sampling\nestimate(m)\n\n# produce LaTeX tables of parameter moments\ncompute_moments(m)\n\n# forecast and compute means and bands using 10 processes\nmy_procs = addprocs(10)\n@everywhere using DSGE\n\nforecast_one(m, :full, :none, [:forecaststates, forecastobs])\nmeans_bands_all(m, :full, :none, [:forecaststates, :forecastobs])\nrmprocs(my_procs)For more details on changing the model's default settings, parameters, equilibrium conditions, etc., see Advanced Usage.By default, the estimate routine loads the dataset, reoptimizes the initial parameter vector, computes the Hessian at the mode, and conducts full posterior parameter sampling. (The initial parameter vector used is specified in the model's constructor.) Further options for estimation are described in Estimating the Model:To use updated data or alternative user-specified datasets, see \nInput Data\n.\nThe user may want to avoid reoptimizing the parameter vector and calculating   the Hessian matrix at this new vector. Please see \nReoptimizing\n.For more information on the many types of forecasts that can be run on an existing or user-defined model, see Forecasting."
 },
 
 {
@@ -109,7 +109,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Running An Existing Model",
     "title": "DSGE.logpath",
     "category": "Function",
-    "text": "logpath(model)\n\nReturns path to log file. Path built as\n\n<output root>/output_data/<spec>/<subspec>/log/log_<filestring>.log\n\n\n\n"
+    "text": "logpath{T<:AbstractString}(m::AbstractModel, out_type::T, file_name::T=\"\")\n\nReturns path to specific log output file, creating containing directory as needed. If file_name not specified, creates and returns path to containing directory only. Path built as\n\n<output root>/output_data/<spec>/<subspec>/<out_type>/log/<file_name>_<filestring>.<ext>\n\n\n\n"
 },
 
 {
@@ -173,7 +173,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Advanced Usage",
     "title": "Working with Settings",
     "category": "section",
-    "text": "There are many computational settings that affect how the code runs without affecting the mathematical definition of the model. Below, we describe several important settings for package usage.For more details on implementation and usage of settings, see Model Settings.See defaults.jl for the complete description of default settings."
+    "text": "There are many computational settings that affect how the code runs without affecting the mathematical definition of the model.Below, we describe several important settings for package usage.For more details on implementation and usage of settings, see Model Settings.See defaults.jl for the complete description of default settings."
 },
 
 {
@@ -189,7 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Advanced Usage",
     "title": "Dates",
     "category": "section",
-    "text": "date_presample_start\n: Start date of pre-sample.\ndate_mainsample_start\n: Start date of main sample.\ndate_zlbregime_start\n: Start date of zero lower bound regime.\ndate_mainsample_end\n: End date of main sample.\ndate_forecast_start\n: Start date of forecast period.\ndate_forecast_end\n: End date of forecast period."
+    "text": "date_presample_start\n: Start date of pre-sample.\ndate_mainsample_start\n: Start date of main sample.\ndate_zlb_start\n: Start date of zero lower bound regime.\ndate_forecast_start\n: Start date of forecast period (or the period after the last period for which we have GDP data).\ndate_forecast_end\n: End date of forecast period."
 },
 
 {
@@ -205,7 +205,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Advanced Usage",
     "title": "Estimation",
     "category": "section",
-    "text": "reoptimize\n: Whether to reoptimize the posterior mode. If \ntrue\n     (the default), \nestimate()\n begins reoptimizing from the model     object's parameter vector. See \nOptimizing or Reoptimizing\n for more details.\ncalculate_hessian\n: Whether to compute the Hessian. If \ntrue\n (the     default), \nestimate()\n calculates the Hessian at the posterior mode."
+    "text": "reoptimize\n: Whether to reoptimize the posterior mode. If \ntrue\n     (the default), \nestimate()\n begins reoptimizing from the model     object's parameter vector.     See \nOptimizing or Reoptimizing\n     for more details.\ncalculate_hessian\n: Whether to compute the Hessian. If \ntrue\n (the     default), \nestimate()\n calculates the Hessian at the posterior mode."
 },
 
 {
@@ -229,7 +229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Advanced Usage",
     "title": "Overwriting Default Settings",
     "category": "section",
-    "text": "To overwrite default settings added during model construction, a user must define a new Setting object and update the corresponding entry in the model's settings dictionary using the <= syntax. If the print, code, and description fields of the new Setting object are not provided, the fields of the existing setting will be maintained. If new values for print, code, and description are specified, and if these new values are distinct from the defaults for those fields, the fields of the existing setting will be updated.For example, overwriting use_parallel_workers should look like this:m = Model990()\nm <= Setting(:use_parallel_workers, true)"
+    "text": "To overwrite default settings added during model construction, a user must create a Dict{Symbol, Setting} and pass that into the model constructor as the keyword argument custom_settings. If the print, code, and description fields of the new Setting object are not provided, the fields of the existing setting will be maintained. If new values for print, code, and description are specified, and if these new values are distinct from the defaults for those fields, the fields of the existing setting will be updated.For example, overwriting use_parallel_workers should look like this:custom_settings = Dict{Symbol, Setting}(\n    :use_parallel_workers => Setting(:use_parallel_workers, true))\nm = Model990(custom_settings = custom_settings)By default, passing in custom_settings overwrites the entries in the model object's settings field. However, with the additional keyword argument testing = true, it will overwrite the entries in test_settings:m = Model990(custom_settings = custom_settings, testing = true)"
 },
 
 {
@@ -317,7 +317,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "Dataset creation implementation details",
     "category": "section",
-    "text": "Let's quickly walk through the steps DSGE.jl takes to create a suitable dataset.First, a user provides a detailed specification of the data series and transformations used for their model.the user specifies \nm.observables\n; the keys of this dictionary name     the series to be used in estimating the model.     \nthe user specifies \nm.data_series\n; the keys of this dictionary name data sources, and the     values of this dictionary are lists of mnemonics to be accessed from that data source.     Note that these mnemonics do not correspond to observables one-to-one, but rather are     usually series in \nlevels\n that will be further transformed.the user specifies \nm.data_transforms\n; the keys of this dictionary     name the series to be constructed and match the keys of     \nm.observables\n exactly; the values of this dictionary are     functions that operate on a single argument (\nlevels\n) which is a     DataFrame of the series specified in \nm.data_series\n. These     functions return a DataArray for a single series. These functions     could do nothing (e.g. return \nlevels[:, :SERIES1]\n) or perform a     more complex transformation, such as converting to one quarter     percent changes or adjusting into per-capita terms. See \nData Transforms and Utilities\n for functions that may be     of use when defining series-specific transformations.the user adjusts data-related settings, such as \ndata_vintage\n, \ndataroot\n,     \ndate_presample_start\n, \ndate_mainsample_end\n, and \ndate_zlbregime_start\n, and     \nuse_population_forecast\n.Second, DSGE.jl attempts to construct the dataset given this setup through a call to load_data. See load_data for more details.Intermediate data in levels are loaded. See \nload_data_levels\n for more details.\nTransformations are applied to the data in levels. See \ntransform_data\n for more details.\nThe data are saved to disk. See \nsave_data\n for more details."
+    "text": "Let's quickly walk through the steps DSGE.jl takes to create a suitable dataset.First, a user provides a detailed specification of the data series and transformations used for their model.the user specifies \nm.observables\n; the keys of this dictionary name     the series to be used in estimating the model.the user specifies \nm.data_series\n; the keys of this dictionary name data sources, and the     values of this dictionary are lists of mnemonics to be accessed from that data source.     Note that these mnemonics do not correspond to observables one-to-one, but rather are     usually series in \nlevels\n that will be further transformed.the user specifies \nm.data_transforms\n; the keys of this dictionary     name the series to be constructed and match the keys of     \nm.observables\n exactly; the values of this dictionary are     functions that operate on a single argument (\nlevels\n) which is a     DataFrame of the series specified in \nm.data_series\n. These     functions return a DataArray for a single series. These functions     could do nothing (e.g. return \nlevels[:, :SERIES1]\n) or perform a     more complex transformation, such as converting to one quarter     percent changes or adjusting into per-capita terms. See \nData Transforms and Utilities\n for functions that may be     of use when defining series-specific transformations.the user adjusts data-related settings, such as \ndata_vintage\n, \ndataroot\n,     \ndate_presample_start\n, \ndate_zlb_start\n, \ndate_forecast_start\n, and     \nuse_population_forecast\n.Second, DSGE.jl attempts to construct the dataset given this setup through a call to load_data. See load_data for more details.Intermediate data in levels are loaded. See \nload_data_levels\n for more details.\nTransformations are applied to the data in levels. See \ntransform_data\n for more details.\nThe data are saved to disk. See \nsave_data\n for more details."
 },
 
 {
@@ -325,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "Common pitfalls",
     "category": "section",
-    "text": "Given the complexity of the data download, you may find that the dataset generated by load_data is not exactly as you expect. Here are some common pitfalls to look out for:Ensure that the \ndata_vintage\n model setting is as you expect. (Try checking     \ndata_vintage(m)\n.)\nEnsure that the \ndate_mainsample_end\n model setting is as you expect, and that is not     logically incompatible with \ndata_vintage\n.\nEnsure that the \ndata_series\n field of the model object is set as expected.\nDouble check the transformations specified in the \ndata_transforms\n field of the model     object.\nEnsure that the keys of the \nobservables\n and \ndata_transforms\n fields of the model object     match.\nCheck the input files for \nNon-FRED data sources\n. They should be     in the directory indicated by \ninpath(m, \"data\")\n, be named appropriately given the     vintage of data expected, and be formatted appropriately. One may have to copy and     rename files of non-FRED data sources to match the specified vintage, even if the     contents of the files would be identical.\nLook for any immediate issues in the final dataset saved (\ndata_<yymmdd>.csv\n). If a data     series in this file is all \nNaN\n values, then likely a non-FRED data source was not     provided correctly.\nEnsure that the column names of the data CSV match the keys of the \nobservables\n field of     the model object.\nYou may receive a warning that an input data file \"does not contain the entire date range     specified\". This means that observations are not provided for some periods in which the     model requires data. This is perfectly okay if your data series starts after     \ndate_presample_start\n.If you experience any problems using FredData.jl, ensure your API key is provided correctly and that there are no issues with your firewall, etc. Any issues with FredData.jl proper should be reported on that project's page."
+    "text": "Given the complexity of the data download, you may find that the dataset generated by load_data is not exactly as you expect. Here are some common pitfalls to look out for:Ensure that the \ndata_vintage\n model setting is as you expect. (Try checking     \ndata_vintage(m)\n.)\nEnsure that the \ndate_forecast_start\n model setting is as you expect, and that is not     logically incompatible with \ndata_vintage\n.\nEnsure that the \ndata_series\n field of the model object is set as expected.\nDouble check the transformations specified in the \ndata_transforms\n field of the model     object.\nEnsure that the keys of the \nobservables\n and \ndata_transforms\n fields of the model object     match.\nCheck the input files for \nNon-FRED data sources\n. They should be     in the directory indicated by \ninpath(m, \"data\")\n, be named appropriately given the     vintage of data expected, and be formatted appropriately. One may have to copy and     rename files of non-FRED data sources to match the specified vintage, even if the     contents of the files would be identical.\nLook for any immediate issues in the final dataset saved (\ndata_<yymmdd>.csv\n). If a data     series in this file is all \nNaN\n values, then likely a non-FRED data source was not     provided correctly.\nEnsure that the column names of the data CSV match the keys of the \nobservables\n field of     the model object.\nYou may receive a warning that an input data file \"does not contain the entire date range     specified\". This means that observations are not provided for some periods in which the     model requires data. This is perfectly okay if your data series starts after     \ndate_presample_start\n.If you experience any problems using FredData.jl, ensure your API key is provided correctly and that there are no issues with your firewall, etc. Any issues with FredData.jl proper should be reported on that project's page."
 },
 
 {
@@ -341,7 +341,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.df_to_matrix",
     "category": "Method",
-    "text": "df_to_matrix(m::AbstractModel, df::DataFrame)\n\nReturn df, converted to matrix of floats, and discard date column. Also ensure data are sorted by date and that rows outside of sample are discarded. The output of this function is suitable for direct use in estimate, posterior, etc.\n\n\n\n"
+    "text": "df_to_matrix(m, df; cond_type = :none, include_presample = true)\n\nReturn df, converted to matrix of floats, and discard date column. Also ensure data are sorted by date and that rows outside of sample are discarded. The output of this function is suitable for direct use in estimate, posterior, etc.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.load_cond_data_levels-Tuple{DSGE.AbstractModel{T}}",
+    "page": "Input Data",
+    "title": "DSGE.load_cond_data_levels",
+    "category": "Method",
+    "text": "load_cond_data_levels(m::AbstractModel; verbose::Symbol=:low)\n\nCheck on disk in inpath(m, \"cond\") for a conditional dataset (in levels) of the correct vintage and load it.\n\nThe following series are also loaded from inpath(m, \"data\") and either appended or merged into the conditional data:\n\nThe last period of (unconditional) data in levels   (\ndata_levels_<yymmdd>.csv\n), used to calculate growth rates\nThe first period of forecasted population   (\npopulation_forecast_<yymmdd>.csv\n), used for per-capita calculations\n\n\n\n"
 },
 
 {
@@ -349,7 +357,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.load_data",
     "category": "Method",
-    "text": "load_data(m::AbstractModel; try_disk::Bool = true, verbose::Symbol = :low)\n\nCreate a DataFrame with all data series for this model, fully transformed.  \n\nFirst, check the disk to see if a valid dataset is already stored in inpath(m, \"data\"). A dataset is valid if every series in m.data_transforms is present and the entire sample is contained (from date_presample_start to date_mainsample_end. If no valid dataset is already stored, the dataset will be recreated. This check can be eliminated by passing try_disk=false.\n\nIf the dataset is to be recreated, in a preliminary stage, intermediate data series, as specified in m.data_series, are loaded in levels using load_data_levels. See ?load_data_levels for more details.\n\nThen, the series in levels are transformed as specified in m.data_transforms. See ?transform_data for more details.\n\nThe resulting DataFrame is saved to disk as data_<yymmdd>.csv and returned to the caller.  \n\n\n\n"
+    "text": "load_data(m::AbstractModel; try_disk::Bool = true, verbose::Symbol = :low)\n\nCreate a DataFrame with all data series for this model, fully transformed.\n\nFirst, check the disk to see if a valid dataset is already stored in inpath(m, \"data\"). A dataset is valid if every series in m.observable_mappings is present and the entire sample is contained (from date_presample_start to date_mainsample_end. If no valid dataset is already stored, the dataset will be recreated. This check can be eliminated by passing try_disk=false.\n\nIf the dataset is to be recreated, in a preliminary stage, intermediate data series as specified in m.observable_mappings are loaded in levels using load_data_levels. See ?load_data_levels for more details.\n\nThen, the series in levels are transformed as specified in m.observable_mappings. See ?transform_data for more details.\n\nIf m.testing is false, then the resulting DataFrame is saved to disk as data_<yymmdd>.csv. The data are then returned to the caller.\n\n\n\n"
 },
 
 {
@@ -357,7 +365,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.load_data_levels",
     "category": "Method",
-    "text": "load_data_levels(m::AbstractModel; verbose::Symbol=:low)\n\nLoad data in levels by appealing to the data sources specified for the model. Data from FRED is loaded first, by default; then, merge other custom data sources.\n\nCheck on disk in inpath(m, \"data\") datasets, of the correct vintage, corresponding to the ones in keys(m.data_series). Load the appropriate data series (specified in m.data_series[source]) for each data source. \n\nTo accomodate growth rates and other similar transformations, more rows of data may be downloaded than otherwise specified by the date model settings. (By the end of the process, these rows will have been dropped.)\n\nData from FRED (i.e. the :fred data source) are treated separately. These are downloaded using load_fred_data. See ?load_fred_data for more details.\n\nData from non-FRED data sources are read from disk, verified, and merged.\n\n\n\n"
+    "text": "load_data_levels(m::AbstractModel; verbose::Symbol=:low)\n\nLoad data in levels by appealing to the data sources specified for the model. Data from FRED is loaded first, by default; then, merge other custom data sources.\n\nCheck on disk in inpath(m, \"data\") datasets, of the correct vintage, corresponding to the ones required by the entries in m.observable_mappings. Load the appropriate data series (specified in m.observable_mappings[key].input_series) for each data source.\n\nTo accomodate growth rates and other similar transformations, more rows of data may be downloaded than otherwise specified by the date model settings. (By the end of the process, these rows will have been dropped.)\n\nData from FRED (i.e. the :fred data source) are treated separately. These are downloaded using load_fred_data. See ?load_fred_data for more details.\n\nData from non-FRED data sources are read from disk, verified, and merged.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.parse_data_series-Tuple{DSGE.AbstractModel{T}}",
+    "page": "Input Data",
+    "title": "DSGE.parse_data_series",
+    "category": "Method",
+    "text": "parse_data_series(m::AbstractModel)\n\nParse m.observable_mappings for the data sources and mnemonics to read in.\n\nReturns a Dict{Symbol, Vector{Symbol}} mapping sources => mnemonics found in that data file.\n\n\n\n"
 },
 
 {
@@ -365,7 +381,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.save_data",
     "category": "Method",
-    "text": "save_data(m::AbstractModel, df::DataFrame)\n\nSave df to disk as CSV. File is located in inpath(m, \"data\").\n\n\n\n"
+    "text": "save_data(m::AbstractModel, df::DataFrame; cond_type::Symbol = :none)\n\nSave df to disk as CSV. File is located in inpath(m, \"data\").\n\n\n\n"
 },
 
 {
@@ -381,7 +397,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.transform_data",
     "category": "Method",
-    "text": "transform_data(m::AbstractModel, levels::DataFrame; verbose::Symbol = :low)\n\nTransform data loaded in levels and order columns appropriately for the DSGE model. Returns DataFrame of transformed data.\n\nThe DataFrame levels is output from load_data_levels. The series in levels are transformed as specified in m.data_transforms. - To prepare for per-capita transformations, population data are filtered using     hpfilter. The series in levels to use as the population series is given by the     population_mnemonic setting. If use_population_forecast is true, a population     forecast is appended to the recorded population levels before the filtering. Both     filtered and unfiltered population levels and growth rates are added to the levels     data frame. - The transformations are applied for each series using the levels DataFrame as input.\n\n\n\n"
+    "text": "transform_data(m::AbstractModel, levels::DataFrame; cond_type::Symbol = :none,\n    verbose::Symbol = :low)\n\nTransform data loaded in levels and order columns appropriately for the DSGE model. Returns DataFrame of transformed data.\n\nThe DataFrame levels is output from load_data_levels. The series in levels are transformed as specified in m.observable_mappings.\n\nTo prepare for per-capita transformations, population data are filtered using   \nhpfilter\n. The series in \nlevels\n to use as the population series is given by   the \npopulation_mnemonic\n setting. If \nuse_population_forecast(m)\n, a   population forecast is appended to the recorded population levels before the   filtering. Both filtered and unfiltered population levels and growth rates are   added to the \nlevels\n data frame.\nThe transformations are applied for each series using the \nlevels\n DataFrame   as input.\n\nConditional data (identified by cond_type in [:semi, :full]) are handled slightly differently: If use_population_forecast(m), we drop the first period of the population forecast because we treat the first forecast period date_forecast_start(m) as if it were data. We also only apply transformations for the observables given in cond_full_names(m) or cond_semi_names(m).\n\n\n\n"
 },
 
 {
@@ -421,7 +437,39 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.hpfilter",
     "category": "Method",
-    "text": "yt, yf = hpfilter(y, λ::Real)\n\nApplies the Hodrick-Prescott filter (\"H-P filter\"). The smoothing parameter λ is applied to the columns of y, returning the trend component yt and the cyclical component yf.   For quarterly data, one can use λ=1600.\n\nConsecutive missing values at the beginning or end of the time series are excluded from the filtering. If there are missing values within the series, the filtered values are all NaN.\n\nSee also:\n\nHodrick, Robert; Prescott, Edward C. (1997). \"Postwar U.S. Business Cycles: An Empirical\nInvestigation\". Journal of Money, Credit, and Banking 29 (1): 1–16.\n\n\n\n"
+    "text": "yt, yf = hpfilter(y, λ::Real)\n\nApplies the Hodrick-Prescott filter (\"H-P filter\"). The smoothing parameter λ is applied to the columns of y, returning the trend component yt and the cyclical component yf. For quarterly data, one can use λ=1600.\n\nConsecutive missing values at the beginning or end of the time series are excluded from the filtering. If there are missing values within the series, the filtered values are all NaN.\n\nSee also:\n\nHodrick, Robert; Prescott, Edward C. (1997). \"Postwar U.S. Business Cycles: An Empirical\nInvestigation\". Journal of Money, Credit, and Banking 29 (1): 1–16.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.loggrowthtopct_annualized-Tuple{Any}",
+    "page": "Input Data",
+    "title": "DSGE.loggrowthtopct_annualized",
+    "category": "Method",
+    "text": "loggrowthtopct_annualized(y)\n\nTransform from log growth rates to annualized quarter-over-quarter percent change.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.loggrowthtopct_annualized_percapita-Tuple{Array{T,N},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.loggrowthtopct_annualized_percapita",
+    "category": "Method",
+    "text": "loggrowthtopct_annualized_percapita(y, pop_growth)\n\nTransform from log per-capita growth rates to annualized aggregate (not per-capita) quarter-over-quarter percent change.\n\nNote\n\nThis should only be used for output, consumption, investment and GDP deflator (inflation).\n\nInputs\n\ny\n: the data we wish to transform to annualized percent change from   quarter-over-quarter log growth rates. \ny\n is either a vector of length   \nnperiods\n or an \nndraws x `nperiods\n matrix.\n\npop_growth::Vector\n: the length \nnperiods\n vector of log population growth   rates.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.logleveltopct_annualized-Tuple{Array{T,N},T<:AbstractFloat}",
+    "page": "Input Data",
+    "title": "DSGE.logleveltopct_annualized",
+    "category": "Method",
+    "text": "logleveltopct_annualized(y, y0)\n\nTransform from log levels to annualized quarter-over-quarter percent change.\n\nInputs\n\ny\n: the data we wish to transform to annualized quarter-over-quarter percent   change from log levels. \ny\n is either a vector of length \nnperiods\n or an   \nndraws x `nperiods\n matrix.\n\ny0\n: the last data point in the history (of state or observable)   corresponding to the \ny\n variable. This is required to compute a percent   change for the first period.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.logleveltopct_annualized_percapita-Tuple{Array{T,N},T<:AbstractFloat,Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.logleveltopct_annualized_percapita",
+    "category": "Method",
+    "text": "logleveltopct_annualized_percapita(y, y0, pop_growth)\n\nTransform from per-capita log levels to annualized aggregate (not per-capita) quarter-over-quarter percent change.\n\nNote\n\nThis is usually applied to labor supply (hours worked per hour), and probably shouldn't be used for any other observables.\n\nInputs\n\ny\n: the data we wish to transform to annualized aggregate   quarter-over-quarter percent change from per-capita log levels. \ny\n is either   a vector of length \nnperiods\n or an \nndraws x `nperiods\n matrix.\n\ny0\n: The last data point in the history (of state or observable)   corresponding to the \ny\n variable. This is required to compute a percent   change for the first period.\n\npop_growth::Vector\n: the length \nnperiods\n vector of log population growth   rates.\n\n\n\n"
 },
 
 {
@@ -449,6 +497,38 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "input_data.html#DSGE.quartertoannual-Tuple{Any}",
+    "page": "Input Data",
+    "title": "DSGE.quartertoannual",
+    "category": "Method",
+    "text": "quartertoannual(v)\n\nConvert from quarter to annual frequency... by multiplying by 4.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.quartertoannualpercent-Tuple{Any}",
+    "page": "Input Data",
+    "title": "DSGE.quartertoannualpercent",
+    "category": "Method",
+    "text": "quartertoannualpercent(v)\n\nConvert from quarter to annual frequency in percent... by multiplying by 400.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.get_data_filename-Tuple{DSGE.AbstractModel{T},Symbol}",
+    "page": "Input Data",
+    "title": "DSGE.get_data_filename",
+    "category": "Method",
+    "text": "get_data_filename(m, cond_type)\n\nReturns the data file for m, which depends on data_vintage(m), and if cond_type in [:semi, :full], also on cond_vintage(m) and cond_id(m).\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.iterate_quarters-Tuple{Date,Int64}",
+    "page": "Input Data",
+    "title": "DSGE.iterate_quarters",
+    "category": "Method",
+    "text": "iterate_quarters(start::Date, quarters::Int)\n\nReturns the date corresponding to start + quarters quarters.\n\nInputs\n\nstart\n: starting date\nquarters\n: number of quarters to iterate forward or backward\n\n\n\n"
+},
+
+{
     "location": "input_data.html#DSGE.quartertodate-Tuple{AbstractString}",
     "page": "Input Data",
     "title": "DSGE.quartertodate",
@@ -457,11 +537,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "input_data.html#DSGE.subtract_quarters-Tuple{Date,Date}",
+    "page": "Input Data",
+    "title": "DSGE.subtract_quarters",
+    "category": "Method",
+    "text": "subtract_quarters(t1::Date, t0::Date)\n\nCompute the number of quarters between t1 and t0, including t0 and excluding t1.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.data_to_df-Tuple{DSGE.AbstractModel{T},Array{T<:AbstractFloat,2},Date}",
+    "page": "Input Data",
+    "title": "DSGE.data_to_df",
+    "category": "Method",
+    "text": "data_to_df(m, data, start_date)\n\nCreate a DataFrame out of the matrix data, including a :date column beginning in start_date.  Variable names and indices are obtained from m.observables.\n\n\n\n"
+},
+
+{
     "location": "input_data.html#DSGE.has_saved_data-Tuple{DSGE.AbstractModel{T}}",
     "page": "Input Data",
     "title": "DSGE.has_saved_data",
     "category": "Method",
-    "text": "has_saved_data(m::AbstractModel)\n\nDetermine if there is a saved dataset on disk for the required vintage.\n\n\n\n"
+    "text": "has_saved_data(m::AbstractModel; cond_type::Symbol = :none)\n\nDetermine if there is a saved dataset on disk for the required vintage and conditional type.\n\n\n\n"
 },
 
 {
@@ -469,7 +565,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.isvalid_data",
     "category": "Method",
-    "text": "isvalid_data(m::AbstractModel, df::DataFrame)\n\nReturn if dataset is valid for this model, ensuring that all observables are contained and that all quarters between the beginning of the presample and the end of the mainsample are contained.\n\n\n\n"
+    "text": "isvalid_data(m::AbstractModel, df::DataFrame; cond_type::Symbol = :none)\n\nReturn if dataset is valid for this model, ensuring that all observables are contained and that all quarters between the beginning of the presample and the end of the mainsample are contained. Also checks to make sure that expected interest rate data is available if n_anticipated_shocks(m) > 0.\n\n\n\n"
 },
 
 {
@@ -477,7 +573,79 @@ var documenterSearchIndex = {"docs": [
     "page": "Input Data",
     "title": "DSGE.read_data",
     "category": "Method",
-    "text": "read_data(m::AbstractModel)\n\nRead CSV from disk as DataFrame. File is located in inpath(m, \"data\").\n\n\n\n"
+    "text": "read_data(m::AbstractModel; cond_type::Symbol = :none)\n\nRead CSV from disk as DataFrame. File is located in inpath(m, \"data\").\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.read_population_data-Tuple{DSGE.AbstractModel{T}}",
+    "page": "Input Data",
+    "title": "DSGE.read_population_data",
+    "category": "Method",
+    "text": "read_population_data(m; verbose = :low)\n\nread_population_data(filename; verbose = :low)\n\nRead in population data stored in levels, either from inpath(m, \"data\", \"population_data_levels_[vint].csv\") or filename.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.read_population_forecast-Tuple{DSGE.AbstractModel{T}}",
+    "page": "Input Data",
+    "title": "DSGE.read_population_forecast",
+    "category": "Method",
+    "text": "read_population_forecast(m; verbose = :low)\n\nread_population_forecast(filename, population_mnemonic, last_recorded_date; verbose = :low)\n\nRead in population forecast in levels, either from inpath(m, \"data\", \"population_forecast_[vint].csv\") or filename. If that file does not exist, return an empty DataFrame.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.transform_population_data-Tuple{DataFrames.DataFrame,DataFrames.DataFrame,Symbol}",
+    "page": "Input Data",
+    "title": "DSGE.transform_population_data",
+    "category": "Method",
+    "text": "transform_population_data(population_data, population_forecast,\n    population_mnemonic; verbose = :low)\n\nLoad, HP-filter, and compute growth rates from population data in levels. Optionally do the same for forecasts.\n\nInputs\n\npopulation_data\n: pre-loaded DataFrame of historical population data   containing the columns \n:date\n and \npopulation_mnemonic\n. Assumes this is   sorted by date.\npopulation_forecast\n: pre-loaded \nDataFrame\n of population forecast   containing the columns \n:date\n and \npopulation_mnemonic\npopulation_mnemonic\n: column name for population series in \npopulation_data\n   and \npopulation_forecast\n\nKeyword Arguments\n\nverbose\n: one of \n:none\n, \n:low\n, or \n:high\n\nOutput\n\nA dictionary containing the following keys:\n\n:filtered_population_recorded\n: HP-filtered historical population series (levels)\n:dlfiltered_population_recorded\n: HP-filtered historical population series (growth rates)\n:dlpopulation_recorded\n: Non-filtered historical population series (growth rates)\n:filtered_population_forecast\n: HP-filtered population forecast series (levels)\n:dlfiltered_population_forecast\n: HP-filtered population forecast series (growth rates)\n:dlpopulation_forecast\n: Non-filtered historical population series (growth rates)\n\nNote: the r\"*forecast\" fields will be empty if population_forecast_file is not provided.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.get_transform4q-Tuple{Function}",
+    "page": "Input Data",
+    "title": "DSGE.get_transform4q",
+    "category": "Method",
+    "text": "get_transform4q(transform::Function)\n\nReturns the 4-quarter transformation associated with the annualizing transformation.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.loggrowthtopct_4q-Tuple{Array{T,N},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.loggrowthtopct_4q",
+    "category": "Method",
+    "text": "loggrowthtopct_4q(y, data)\n\nTransform from log growth rates to 4-quarter percent change.\n\nInputs\n\ny\n: the data we wish to transform to aggregate 4-quarter percent change from   log per-capita growth rates. \ny\n is either a vector of length \nnperiods\n or an   \nndraws x `nperiods\n matrix.\n\ndata\n: if \ny = [y_t, y_{t+1}, ..., y_{t+nperiods-1}]\n, then   \ndata = [y_{t-3}, y_{t-2}, y_{t-1}]\n. This is necessary to compute   4-quarter percent changes for the first three periods.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.loggrowthtopct_4q_percapita-Tuple{Array{T,N},Array{T,1},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.loggrowthtopct_4q_percapita",
+    "category": "Method",
+    "text": "loggrowthtopct_4q_percapita(y, data, pop_growth)\n\nTransform from log per-capita growth rates to aggregate 4-quarter percent change.\n\nNote\n\nThis should only be used for output, consumption, investment, and GDP deflator (inflation).\n\nInputs\n\ny\n: the data we wish to transform to aggregate 4-quarter percent change from   log per-capita growth rates. \ny\n is either a vector of length \nnperiods\n or an   \nndraws x `nperiods\n matrix.\n\ndata\n: if \ny = [y_t, y_{t+1}, ..., y_{t+nperiods-1}]\n, then   \ndata = [y_{t-3}, y_{t-2}, y_{t-1}]\n. This is necessary to compute   4-quarter percent changes for the first three periods.\n\npop_growth::Vector\n: the length \nnperiods\n vector of log population growth   rates.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.logleveltopct_4q-Tuple{Array{T,N},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.logleveltopct_4q",
+    "category": "Method",
+    "text": "logleveltopct_4q(y, data)\n\nTransform from log levels to 4-quarter percent change.\n\nInputs\n\ny\n: the data we wish to transform to 4-quarter percent change from log   levels. \ny\n is either a vector of length \nnperiods\n or an \nndraws x `nperiods\n   matrix.\n\ndata\n: if \ny = [y_t, y_{t+1}, ..., y_{t+nperiods-1}]\n, then   \ndata = [y_{t-4}, y_{t-3}, y_{t-2}, y_{t-1}]\n. This is necessary to compute   4-quarter percent changes for the first three periods.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.logleveltopct_4q_percapita-Tuple{Array{T,N},Array{T,1},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.logleveltopct_4q_percapita",
+    "category": "Method",
+    "text": "logleveltopct_4q_percapita(y, data, pop_growth)\n\nTransform from per-capita log levels to 4-quarter aggregate percent change.\n\nNote\n\nThis is usually applied to labor supply (hours worked), and probably shouldn't be used for any other observables.\n\nInputs\n\ny\n: the data we wish to transform to 4-quarter aggregate percent change from   per-capita log levels. \ny\n is either a vector of length \nnperiods\n or an   \nndraws x `nperiods\n matrix.\n\ndata\n: if \ny = [y_t, y_{t+1}, ..., y_{t+nperiods-1}]\n, then   \ndata = [y_{t-4}, y_{t-3}, y_{t-2}, y_{t-1}]\n. This is necessary to compute   4-quarter percent changes for the first three periods.\n\npop_growth::Vector\n: the length \nnperiods\n vector of log population growth   rates.\n\n\n\n"
+},
+
+{
+    "location": "input_data.html#DSGE.prepend_data-Tuple{Array{T,N},Array{T,1}}",
+    "page": "Input Data",
+    "title": "DSGE.prepend_data",
+    "category": "Method",
+    "text": "prepend_data(y::Array, data::Vector)\n\nPrepends data necessary for running 4q transformations.\n\nInputs:\n\ny\n: \nndraws x t\n array representing a timeseries for variable \ny\ndata\n: vector representing a timeseries to prepend to \ny\n\n\n\n"
 },
 
 {
@@ -513,6 +681,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "input_data.html#DSGE.nan_cond_vars!-Tuple{DSGE.AbstractModel{T},DataFrames.DataFrame}",
+    "page": "Input Data",
+    "title": "DSGE.nan_cond_vars!",
+    "category": "Method",
+    "text": "nan_cond_vars!(m, df; cond_type = :none)\n\nNaN out conditional period variables not in cond_semi_names(m) or cond_full_names(m) if necessary.\n\n\n\n"
+},
+
+{
     "location": "input_data.html#DSGE.next_quarter",
     "page": "Input Data",
     "title": "DSGE.next_quarter",
@@ -534,14 +710,6 @@ var documenterSearchIndex = {"docs": [
     "title": "DSGE.stringstodates",
     "category": "Method",
     "text": "stringstodates(stringarray)\n\nConverts a collection of strings in \"y-m-d\" format to Dates.\n\n\n\n"
-},
-
-{
-    "location": "input_data.html#DSGE.subtract_quarters-Tuple{Date,Date}",
-    "page": "Input Data",
-    "title": "DSGE.subtract_quarters",
-    "category": "Method",
-    "text": "subtract_quarters(t1::Date, t0::Date)\n\nCompute the number of quarters between t1 and t0, including t0 and excluding t1.\n\n\n\n"
 },
 
 {
@@ -629,7 +797,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Implementation Details",
     "title": "Implementation Details",
     "category": "section",
-    "text": "CurrentModule = DSGEThis section describes important functions and implementation features in greater detail. If the user is interested only in running the default model and reproducing the estimation results, this section can be ignored. Additional documentation can also be found in function documentation or in-line.This section focuses on what the code does and why.  Docstrings and the code itself (including comments) provides detailed information regarding how these basic procedures are implemented."
+    "text": "CurrentModule = DSGEThis section describes important functions and implementation features in greater detail. If the user is interested only in running the default model and reproducing the estimation results, this section can be ignored. Additional documentation can also be found in function documentation or in-line.This section focuses on what the code does and why. Docstrings and the code itself (including comments) provide detailed information regarding how these basic procedures are implemented."
 },
 
 {
@@ -637,13 +805,13 @@ var documenterSearchIndex = {"docs": [
     "page": "Implementation Details",
     "title": "DSGE.Model990",
     "category": "Type",
-    "text": "Model990{T} <: AbstractModel{T}\n\nThe Model990 type defines the structure of the FRBNY DSGE model.\n\nFields\n\nParameters and Steady-States\n\nparameters::Vector{AbstractParameter}\n: Vector of all time-invariant model parameters.\n\nsteady_state::Vector{AbstractParameter}\n: Model steady-state values, computed as a function of elements of   \nparameters\n.\n\nkeys::Dict{Symbol,Int}\n: Maps human-readable names for all model parameters and   steady-states to their indices in \nparameters\n and \nsteady_state\n.\n\nInputs to Measurement and Equilibrium Condition Equations\n\nThe following fields are dictionaries that map human-readible names to row and column indices in the matrix representations of of the measurement equation and equilibrium conditions.\n\nendogenous_states::Dict{Symbol,Int}\n: Maps each state to a column in the measurement and   equilibrium condition matrices.\n\nexogenous_shocks::Dict{Symbol,Int}\n: Maps each shock to a column in the measurement and   equilibrium condition matrices.\n\nexpected_shocks::Dict{Symbol,Int}\n: Maps each expected shock to a column in the   measurement and equilibrium condition matrices.\n\nequilibrium_conditions::Dict{Symbol,Int}\n: Maps each equlibrium condition to a row in the   model's equilibrium condition matrices.\n\nendogenous_states_augmented::Dict{Symbol,Int}\n: Maps lagged states to their columns in   the measurement and equilibrium condition equations. These are added after Gensys solves the   model.\n\nobservables::Dict{Symbol,Int}\n: Maps each observable to a row in the model's measurement   equation matrices.\n\nModel Specifications and Settings\n\nspec::AbstractString\n: The model specification identifier, \"m990\", cached here for   filepath computation.\n\nsubspec::AbstractString\n: The model subspecification number, indicating that some   parameters from the original model spec (\"ss0\") are initialized differently. Cached here for   filepath computation.\n\nsettings::Dict{Symbol,Setting}\n: Settings/flags that affect computation without changing   the economic or mathematical setup of the model.\n\ntest_settings::Dict{Symbol,Setting}\n: Settings/flags for testing mode\n\nOther Fields\n\nrng::MersenneTwister\n: Random number generator. Can be is seeded to ensure   reproducibility in algorithms that involve randomness (such as Metropolis-Hastings).\n\ntesting::Bool\n: Indicates whether the model is in testing mode. If \ntrue\n, settings from   \nm.test_settings\n are used in place of those in \nm.settings\n.\n\ndata_series::Dict{Symbol,Vector{Symbol}}\n: A dictionary that   stores data sources (keys) and lists of series mnemonics   (values). DSGE.jl will fetch data from the Federal Reserve Bank of   St. Louis's FRED database; all other data must be downloaded by the   user. See \nload_data\n for further details.\n\n\n\n"
+    "text": "Model990{T} <: AbstractModel{T}\n\nThe Model990 type defines the structure of the FRBNY DSGE model.\n\nFields\n\nParameters and Steady-States\n\nparameters::Vector{AbstractParameter}\n: Vector of all time-invariant model parameters.\n\nsteady_state::Vector{AbstractParameter}\n: Model steady-state values, computed as a function of elements of   \nparameters\n.\n\nkeys::Dict{Symbol,Int}\n: Maps human-readable names for all model parameters and   steady-states to their indices in \nparameters\n and \nsteady_state\n.\n\nInputs to Measurement and Equilibrium Condition Equations\n\nThe following fields are dictionaries that map human-readible names to row and column indices in the matrix representations of of the measurement equation and equilibrium conditions.\n\nendogenous_states::Dict{Symbol,Int}\n: Maps each state to a column in the measurement and   equilibrium condition matrices.\n\nexogenous_shocks::Dict{Symbol,Int}\n: Maps each shock to a column in the measurement and   equilibrium condition matrices.\n\nexpected_shocks::Dict{Symbol,Int}\n: Maps each expected shock to a column in the   measurement and equilibrium condition matrices.\n\nequilibrium_conditions::Dict{Symbol,Int}\n: Maps each equlibrium condition to a row in the   model's equilibrium condition matrices.\n\nendogenous_states_augmented::Dict{Symbol,Int}\n: Maps lagged states to their columns in   the measurement and equilibrium condition equations. These are added after Gensys solves the   model.\n\nobservables::Dict{Symbol,Int}\n: Maps each observable to a row in the model's measurement   equation matrices.\n\nModel Specifications and Settings\n\nspec::AbstractString\n: The model specification identifier, \"m990\", cached here for   filepath computation.\n\nsubspec::AbstractString\n: The model subspecification number, indicating that some   parameters from the original model spec (\"ss0\") are initialized differently. Cached here for   filepath computation.\n\nsettings::Dict{Symbol,Setting}\n: Settings/flags that affect computation without changing   the economic or mathematical setup of the model.\n\ntest_settings::Dict{Symbol,Setting}\n: Settings/flags for testing mode\n\nOther Fields\n\nrng::MersenneTwister\n: Random number generator. Can be is seeded to ensure   reproducibility in algorithms that involve randomness (such as Metropolis-Hastings).\n\ntesting::Bool\n: Indicates whether the model is in testing mode. If \ntrue\n, settings from   \nm.test_settings\n are used in place of those in \nm.settings\n.\n\nobservable_mappings::OrderedDict{Symbol,Observable}\n: A dictionary that   stores data sources, series mnemonics, and transformations to/from model units.   DSGE.jl will fetch data from the Federal Reserve Bank of   St. Louis's FRED database; all other data must be downloaded by the   user. See \nload_data\n and \nObservable\n for further details.\n\n\n\n"
 },
 
 {
-    "location": "implementation_details.html#The-AbstractModel-Type-and-the-Model-Object-1",
+    "location": "implementation_details.html#The-AbstractModel-Type-1",
     "page": "Implementation Details",
-    "title": "The AbstractModel Type and the Model Object",
+    "title": "The AbstractModel Type",
     "category": "section",
     "text": "The AbstractModel type provides a common interface for all model objects, which greatly facilitates the implementation of new model specifications. Any concrete subtype of AbstractModel can be passed to any function defined for AbstractModel, provided that the concrete type has the fields that the function expects to be available.Model990 is one example of a concrete subtype of AbstractModel that implements a single specification of the FRBNY DSGE model. All model objects must have these fields so that the interface for AbstractModel objects works correctly.  See Editing or Extending a Model for more detail.Model990"
 },
@@ -673,11 +841,35 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "implementation_details.html#Parameters:-The-AbstractParameter-Type-1",
+    "location": "implementation_details.html#The-AbstractParameter-Type-1",
     "page": "Implementation Details",
-    "title": "Parameters: The AbstractParameter Type",
+    "title": "The AbstractParameter Type",
     "category": "section",
     "text": "The AbstractParameter type implements our notion of a model parameter: a time-invariant, unobserved value that has economic significance in the model's equilibrium conditions. We estimate the model to find the values of these parameters.Though all parameters are time-invariant, each has different features. Some parameters are scaled for use in the model's equilibrium conditions and measurement equations.  During optimization, parameters can be transformed from model space to the real line via one of three different transformations. These transformations are also defined as types, and require additional information for each parameter. Finally, steady-state parameters are not estimated directly, but are calculated as a function of other parameters.These various requirements are nicely addressed using a parameterized type hierarchy.AbstractParameter{T<:Number}\n: The common abstract supertype for all   parameters.     - \nParameter{T<:Number, U<:Transform}\n: The abstract supertype for       parameters that are directly estimated.         - \nUnscaledParameter{T<:Number, U:<Transform}\n: Concrete type for           parameters that do not need to be scaled for equilibrium conditions.         - \nScaledParameter{T<:Number, U:<Transform}\n: Concrete type for           parameters that are scaled for equilibrium conditions.     - \nSteadyStateParameter{T<:Number}\n: Concrete type for steady-state       parameters.All Parameters have the fields defined in UnscaledParameter:UnscaledParameterScaledParameters also have the following fields:scaledvalue::T\n: Parameter value scaled for use in \neqcond.jl\nscaling::Function\n: Function used to scale parameter value for use in   equilibrium conditions.Note: Though not strictly necessary, defining a scaling with the parameter object allows for much a much cleaner definition of the equilibrium conditions.Because the values of SteadyStateParameters are directly computed as a function of ScaledParameters and UnscaledParameters, they only require 4 fields:SteadyStateParameter"
+},
+
+{
+    "location": "implementation_details.html#DSGE.Observable",
+    "page": "Implementation Details",
+    "title": "DSGE.Observable",
+    "category": "Type",
+    "text": "type Observable\n\nFields\n\nkey::Symbol\ninput_series::Vector{Symbol}\n: vector of mnemonics, each in the form   \n:MNEMONIC__SOURCE\n (e.g. \n:GDP__FRED\n). This vector is parsed to determine   source (e.g. per-capita consumption gets population and consumption).\nfwd_transform::Function\n: Extracts appropriate \ninput_series\n from a   DataFrame of levels, and transforms data to model units (for example, computes   per-capita growth rates from levels).\nrev_transform::Function\n: Transforms a series from model units into   observable units. May take kwargs.\nname::UTF8String\n: e.g. \"Real GDP growth\"\nlongname::UTF8String\n: e.g. \"Real GDP growth per capita\"\n\n\n\n"
+},
+
+{
+    "location": "implementation_details.html#DSGE.PseudoObservable",
+    "page": "Implementation Details",
+    "title": "DSGE.PseudoObservable",
+    "category": "Type",
+    "text": "type PseudoObservable\n\nFields\n\nkey::Symbol\nname::UTF8String\n: e.g. \"Flexible Output Growth\"\nlongname::UTF8String\n: e.g. \"Output that would prevail in a flexible-price economy\"\nrev_transform::Function\n: Transforms a series from model units into   observable units. May take kwargs.\n\n\n\n"
+},
+
+{
+    "location": "implementation_details.html#The-Observable-and-PseudoObservable-Types-1",
+    "page": "Implementation Details",
+    "title": "The Observable and PseudoObservable Types",
+    "category": "section",
+    "text": "We similarly encapsulate information about observables and pseudo-observables (unobserved linear combinations of states, e.g. the output gap) into the Observable and PseudoObservable types. Each type has identifier fields key, name, and longname.Most importantly, both Observables and PseudoObservables include the information needed for transformations to and from model units. For Observables, these are the input_series, fwd_transform, and rev_transform fields. \"Forward transformations\" are applied to transform the raw input data series specified in input_series to model units. The model is estimated and forecasted in model units, and then we apply \"reverse transformations\" to get human-readable units before computing means and bands or plotting. Pseudo-observables are not observed, so they do not have input_series or fwd_transforms, but they may however have rev_transforms.As an example, the :obs_gdp Observable uses as input_series aggregate nominal GDP in levels, the GDP price index, and population in levels, all from FRED. These series are fwd_transformed to get quarter-over-quarter log growth rates of per-capita real GDP, which are the Observable's model units. The reverse transformation then converts :obs_gdp into annualized quarter-over-quarter percent changes of aggregate real GDP.Observable\nPseudoObservable"
 },
 
 {
@@ -709,7 +901,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Implementation Details",
     "title": "DSGE.update!",
     "category": "Function",
-    "text": "update!{T}(pvec::ParameterVector{T}, values::Vector{T})\n\nUpdate all parameters in pvec that are not fixed with values. Length of values must equal length of pvec.\n\n\n\nupdate!{T<:AbstractFloat}(m::AbstractModel, values::Vector{T})\n\nUpdate m.parameters with values, recomputing the steady-state parameter values.\n\nArguments:\n\nm\n: the model object\nvalues\n: the new values to assign to non-steady-state parameters.\n\n\n\nupdate!(a::Setting, b::Setting)\n\nUpdate a with the fields of b if:\n\nThe \nkey\n field is updated if \na.key == b.key\n \nThe \nprint\n boolean and \ncode\n string are overwritten if \na.print\n is false and   \nb.print\n is true, or \na.print\n is true, \nb.print\n is false, and   b.code is non-empty.\nThe \ndescription\n field is updated if \nb.description\n is nonempty\n\n\n\n"
+    "text": "update!{T}(pvec::ParameterVector{T}, values::Vector{T})\n\nUpdate all parameters in pvec that are not fixed with values. Length of values must equal length of pvec.\n\n\n\nupdate!{T<:AbstractFloat}(m::AbstractModel, values::Vector{T})\n\nUpdate m.parameters with values, recomputing the steady-state parameter values.\n\nArguments:\n\nm\n: the model object\nvalues\n: the new values to assign to non-steady-state parameters.\n\n\n\nupdate!(a::Setting, b::Setting)\n\nUpdate a with the fields of b if:\n\nThe \nkey\n field is updated if \na.key == b.key\nThe \nprint\n boolean and \ncode\n string are overwritten if \na.print\n is false and   \nb.print\n is true, or \na.print\n is true, \nb.print\n is false, and   b.code is non-empty.\nThe \ndescription\n field is updated if \nb.description\n is nonempty\n\n\n\n"
 },
 
 {
@@ -817,14 +1009,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "implementation_details.html#DSGE.default_test_settings!-Tuple{DSGE.AbstractModel{T}}",
-    "page": "Implementation Details",
-    "title": "DSGE.default_test_settings!",
-    "category": "Method",
-    "text": "default_test_settings!(m::AbstractModel)\n\nThe following Settings are constructed, initialized and added to m.test_settings. Their purposes are identical to those in m.settings, but these values are used to test DSGE.jl.\n\nI/O Locations and identifiers\n\nsaveroot::Setting{ASCIIString}\n: A temporary directory in /tmp/\ndataroot::Setting{ASCIIString}\n: dsgeroot/test/reference/\ndata_vintage::Setting{ASCIIString}\n: \"_REF\"\n\nMetropolis-Hastings\n\nn_mh_simulations::Setting{Int}\n: 100\nn_mh_blocks::Setting{Int}\n: 1\nn_mh_burn::Setting{Int}\n: 0\nmh_thin::Setting{Int}\n: 1\n\n\n\n"
-},
-
-{
     "location": "implementation_details.html#DSGE.get_setting-Tuple{DSGE.AbstractModel{T},Symbol}",
     "page": "Implementation Details",
     "title": "DSGE.get_setting",
@@ -837,7 +1021,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Implementation Details",
     "title": "DSGE.update!",
     "category": "Method",
-    "text": "update!(a::Setting, b::Setting)\n\nUpdate a with the fields of b if:\n\nThe \nkey\n field is updated if \na.key == b.key\n \nThe \nprint\n boolean and \ncode\n string are overwritten if \na.print\n is false and   \nb.print\n is true, or \na.print\n is true, \nb.print\n is false, and   b.code is non-empty.\nThe \ndescription\n field is updated if \nb.description\n is nonempty\n\n\n\n"
+    "text": "update!(a::Setting, b::Setting)\n\nUpdate a with the fields of b if:\n\nThe \nkey\n field is updated if \na.key == b.key\nThe \nprint\n boolean and \ncode\n string are overwritten if \na.print\n is false and   \nb.print\n is true, or \na.print\n is true, \nb.print\n is false, and   b.code is non-empty.\nThe \ndescription\n field is updated if \nb.description\n is nonempty\n\n\n\n"
 },
 
 {
@@ -909,7 +1093,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Estimating the Model",
     "title": "DSGE.estimate",
     "category": "Function",
-    "text": "estimate(m, data; verbose=:low, proposal_covariance=Matrix())\n\nEstimate the DSGE parameter posterior distribution.\n\nArguments:\n\nm::AbstractModel\n: model object\n\nOptional Arguments:\n\ndata\n: well-formed data as \nMatrix\n or \nDataFrame\n. If this is not provided, the \nload_data\n routine will be executed.\n\nKeyword Arguments:\n\nverbose::Symbol\n: The desired frequency of function progress messages printed to standard out.\n:none\n: No status updates will be reported.\n:low\n: Status updates will be provided in csminwel and at each block in      Metropolis-Hastings.\n:high\n: Status updates provided at each iteration in Metropolis-Hastings.\nproposal_covariance::Matrix\n: Used to test the metropolis_hastings algorithm with a precomputed   covariance matrix for the proposal distribution. When the Hessian is singular,   eigenvectors corresponding to zero eigenvectors are not well defined, so eigenvalue   decomposition can cause problems. Passing a precomputed matrix allows us to ensure that   the rest of the routine has not broken. \n\n\n\n"
+    "text": "estimate(m, data; verbose=:low, proposal_covariance=Matrix())\n\nEstimate the DSGE parameter posterior distribution.\n\nArguments:\n\nm::AbstractModel\n: model object\n\nOptional Arguments:\n\ndata\n: well-formed data as \nMatrix\n or \nDataFrame\n. If this is not provided, the \nload_data\n routine will be executed.\n\nKeyword Arguments:\n\nverbose::Symbol\n: The desired frequency of function progress messages printed to standard out.\n:none\n: No status updates will be reported.\n:low\n: Status updates will be provided in csminwel and at each block in      Metropolis-Hastings.\n:high\n: Status updates provided at each iteration in Metropolis-Hastings.\nproposal_covariance::Matrix\n: Used to test the metropolis_hastings algorithm with a precomputed   covariance matrix for the proposal distribution. When the Hessian is singular,   eigenvectors corresponding to zero eigenvectors are not well defined, so eigenvalue   decomposition can cause problems. Passing a precomputed matrix allows us to ensure that   the rest of the routine has not broken.\nmle\n: Set to true if parameters should be estimated by maximum likelihood directly.     If this is set to true, this function will return after estimating parameters.\nrun_MH\n: Set to false to disable sampling from the posterior.\n\n\n\n"
 },
 
 {
@@ -981,7 +1165,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Estimating the Model",
     "title": "DSGE.likelihood",
     "category": "Function",
-    "text": "likelihood{T<:AbstractFloat}(m::AbstractModel, data::Matrix{T};\n                              mh::Bool = false, catch_errors::Bool = false)\n\nEvaluate the DSGE likelihood function. Can handle \"two part\" estimation where the observed sample contains both a normal stretch of time (in which interest rates are positive) and a stretch of time in which interest rates reach the zero lower bound. If there is a zero-lower-bound period, then we filter over the 2 periods separately.  Otherwise, we filter over the main sample all at once.\n\nArguments\n\nm\n: The model object\ndata\n: matrix of data for observables\n\nOptional Arguments\n\nmh\n: Whether metropolis_hastings is the caller. If \nmh=true\n, the transition matrices for   the zero-lower-bound period are returned in a dictionary.\ncatch_errors\n: If \nmh = true\n, \nGensysErrors\n should always be caught.\n\n\n\n"
+    "text": "likelihood{T<:AbstractFloat}(m::AbstractModel, data::Matrix{T};\n                             mh::Bool = false, catch_errors::Bool = false)\n\nEvaluate the DSGE likelihood function. Can handle two-part estimation where the observed sample contains both a normal stretch of time (in which interest rates are positive) and a stretch of time in which interest rates reach the zero lower bound. If there is a zero-lower-bound period, then we filter over the 2 periods separately. Otherwise, we filter over the main sample all at once.\n\nArguments\n\nm\n: The model object\ndata\n: matrix of data for observables\n\nOptional Arguments\n\nmh\n: Whether \nmetropolis_hastings\n is the caller. If \nmh = true\n,   \ncatch_errors\n is set to \ntrue\n (see below)\ncatch_errors\n: Whether or not to catch errors of type \nGensysError\n\n\n\n"
 },
 
 {
@@ -989,7 +1173,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Estimating the Model",
     "title": "DSGE.posterior",
     "category": "Function",
-    "text": "posterior{T<:AbstractFloat}(m::AbstractModel{T}, data::Matrix{T};\n                             mh::Bool = false, catch_errors::Bool = false)\n\nCalculates and returns the log of the posterior distribution for m.parameters:\n\nlog posterior = log likelihood + log prior\nlog Pr(Θ|data)  = log Pr(data|Θ)   + log Pr(Θ)\n\nArguments\n\nm\n: the model object\ndata\n: matrix of data for observables\n\nOptional Arguments\n\n-mh: Whether metropolis_hastings is the caller. If mh=true, the log likelihood and the   transition matrices for the zero-lower-bound period are also returned. -catch_errors: Whether or not to catch errors of type GensysError or ParamBoundsError\n\n\n\n"
+    "text": "posterior{T<:AbstractFloat}(m::AbstractModel{T}, data::Matrix{T};\n                            mh::Bool = false, catch_errors::Bool = false)\n\nCalculates and returns the log of the posterior distribution for m.parameters:\n\nlog posterior  = log likelihood + log prior + const\nlog Pr(Θ|data) = log Pr(data|Θ) + log Pr(Θ) + const\n\nArguments\n\nm\n: the model object\ndata\n: matrix of data for observables\n\nOptional Arguments\n\nmh\n: Whether \nmetropolis_hastings\n is the caller. If \nmh = true\n,   \ncatch_errors\n is set to \ntrue\n (see below)\ncatch_errors\n: Whether or not to catch errors of type \nGensysError\n and   \nParamBoundsError\n\n\n\n"
 },
 
 {
@@ -997,7 +1181,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Estimating the Model",
     "title": "DSGE.posterior!",
     "category": "Function",
-    "text": "posterior!{T<:AbstractFloat}(m::AbstractModel{T}, parameters::Vector{T}, data::Matrix{T};\n                              mh::Bool = false, catch_errors::Bool = false)\n\nEvaluates the log posterior density at parameters.\n\nArguments\n\nm\n: The model object\nparameters\n: New values for the model parameters\ndata\n: Matrix of input data for observables\n\nOptional Arguments\n\nmh\n: Whether metropolis_hastings is the caller. If \nmh=true\n, the log likelihood and the   transition matrices for the zero-lower-bound period are also returned.\ncatch_errors\n: Whether or not to catch errors of type \nGensysError\n or \nParamBoundsError\n.   If \nmh = true\n, both should always be caught.\n\n\n\n"
+    "text": "posterior!{T<:AbstractFloat}(m::AbstractModel{T}, parameters::Vector{T}, data::Matrix{T};\n                             mh::Bool = false, catch_errors::Bool = false)\n\nEvaluates the log posterior density at parameters.\n\nArguments\n\nm\n: The model object\nparameters\n: New values for the model parameters\ndata\n: Matrix of input data for observables\n\nOptional Arguments\n\nmh\n: Whether \nmetropolis_hastings\n is the caller. If \nmh = true\n,   \ncatch_errors\n is set to \ntrue\n (see below)\ncatch_errors\n: Whether or not to catch errors of type \nGensysError\n and   \nParamBoundsError\n\n\n\n"
 },
 
 {
@@ -1025,35 +1209,59 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "estimation.html#DSGE.compute_moments",
-    "page": "Estimating the Model",
-    "title": "DSGE.compute_moments",
-    "category": "Function",
-    "text": "compute_moments(m::AbstractModel, percent::Float64 = 0.90; verbose::Symbol=:none)\n\nComputes prior and posterior parameter moments. Tabulates prior mean, posterior mean, and bands in various LaTeX tables stored tablespath(m).\n\nArguments\n\nm\n: the model object\npercent\n: the percentage of the mass of draws from Metropolis-Hastings included between   the bands displayed in output tables.\n\n\n\n"
-},
-
-{
-    "location": "estimation.html#DSGE.find_density_bands-Tuple{Array{T,2},AbstractFloat}",
+    "location": "estimation.html#DSGE.find_density_bands-Tuple{Array{T,2},Array{T<:AbstractFloat,1}}",
     "page": "Estimating the Model",
     "title": "DSGE.find_density_bands",
     "category": "Method",
-    "text": "find_density_bands(draws::Matrix, percent::AbstractFloat; minimize::Bool=true)\n\nReturns a 2 x cols(draws) matrix bands such that percent of the mass of draws[:,i] is above bands[1,i] and below bands[2,i].\n\nArguments\n\ndraws\n: Matrix of parameter draws (from Metropolis-Hastings, for example)\npercent\n: percent of data within bands (e.g. .9 to get 90% of mass within bands)\n\nOptional Arguments\n\nminimize\n: if \ntrue\n, choose shortest interval, otherwise just chop off lowest and   highest (percent/2)\n\n\n\n"
+    "text": "find_density_bands{T<:AbstractFloat}(draws::Matrix, percents::Vector{T}; minimize::Bool=true)\n\nReturns a 2 x cols(draws) matrix bands such that percent of the mass of draws[:,i] is above bands[1,i] and below bands[2,i].\n\nArguments\n\ndraws\n: Matrix of parameter draws (from Metropolis-Hastings, for example)\npercent\n: percent of data within bands (e.g. .9 to get 90% of mass within bands)\n\nOptional Arguments\n\nminimize\n: if \ntrue\n, choose shortest interval, otherwise just chop off lowest and   highest (percent/2)\n\n\n\n"
 },
 
 {
-    "location": "estimation.html#DSGE.make_moment_tables-Tuple{DSGE.AbstractModel{T},Array{T<:AbstractFloat,2},AbstractFloat}",
+    "location": "estimation.html#DSGE.find_density_bands-Tuple{Array{T,2},T<:AbstractFloat}",
     "page": "Estimating the Model",
-    "title": "DSGE.make_moment_tables",
+    "title": "DSGE.find_density_bands",
     "category": "Method",
-    "text": "make_moment_tables{T<:AbstractFloat}(m::AbstractModel, draws::Matrix{T},\n    percent::AbstractFloat; verbose::Symbol = :none)\n\nTabulates parameter moments in 3 LaTeX tables:\n\nFor MAIN parameters, a list of prior means, prior standard deviations, posterior means,    and 90% bands for posterior draws\nFor LESS IMPORTANT parameters, a list of the prior means, prior standard deviations,    posterior means and 90% bands for posterior draws.\nA list of prior means and posterior means\n\nArguments\n\ndraws\n: [n_draws x n_parameters] matrix holding the posterior draws from   Metropolis-Hastings from save/mhsave.h5\npercent\n: the mass of observations we want; 0 <= percent <= 1\n\n\n\n"
+    "text": "find_density_bands(draws::Matrix, percent::AbstractFloat; minimize::Bool=true)\n\nReturns a 2 x cols(draws) matrix bands such that percent of the mass of draws[:,i] is above bands[1,i] and below bands[2,i].\n\nArguments\n\ndraws\n: \nndraws\n by \nnperiods\n matrix of parameter draws (from Metropolis-Hastings, for example)\npercent\n: percent of data within bands (e.g. .9 to get 90% of mass within bands)\n\nOptional Arguments\n\nminimize\n: if \ntrue\n, choose shortest interval, otherwise just chop off lowest and   highest (percent/2)\n\n\n\n"
 },
 
 {
-    "location": "estimation.html#DSGE.save_mean_parameters-Tuple{DSGE.AbstractModel{T},Array{T<:AbstractFloat,2}}",
+    "location": "estimation.html#DSGE.moment_tables-Tuple{DSGE.AbstractModel{T}}",
     "page": "Estimating the Model",
-    "title": "DSGE.save_mean_parameters",
+    "title": "DSGE.moment_tables",
     "category": "Method",
-    "text": "save_mean_parameters{T<:AbstractFloat}(m::AbstractModel, draws::Matrix{T})\n\nComputes and saves the posterior mean of the parameters.\n\nArguments\n\nm\ndraws\n: n_draws x n_parameters matrix holding the posterior draws from   Metropolis-Hastings\n\n\n\n"
+    "text": "moment_tables(m; percent = 0.90, subset_inds = 1:0, subset_string = \"\",\n    verbose = :none)\n\nComputes prior and posterior parameter moments. Tabulates prior mean, posterior mean, and bands in various LaTeX tables stored tablespath(m).\n\nInputs\n\nm::AbstractModel\n: model object\n\nKeyword Arguments\n\npercent::AbstractFloat\n: the percentage of the mass of draws from   Metropolis-Hastings included between the bands displayed in output tables.\nsubset_inds::Range{Int64}\n: indices specifying the draws we want to use\nsubset_string::AbstractString\n: short string identifying the subset to be   appended to the output filenames. If \nsubset_inds\n is nonempty but   \nsubset_string\n is empty, an error is thrown\nverbose::Symbol\n: desired frequency of function progress messages printed to   standard out. One of \n:none\n, \n:low\n, or \n:high\n\n\n\n"
+},
+
+{
+    "location": "estimation.html#DSGE.moments-Tuple{DSGE.Parameter{T,U<:DSGE.Transform}}",
+    "page": "Estimating the Model",
+    "title": "DSGE.moments",
+    "category": "Method",
+    "text": "moments(θ::Parameter)\n\nIf θ's prior is a DSGE.RootInverseGamma, τ and ν. Otherwise, returns the mean and standard deviation of the prior. If θ is fixed, returns (θ.value, 0.0).\n\n\n\n"
+},
+
+{
+    "location": "estimation.html#DSGE.prior_posterior_means_table-Tuple{DSGE.AbstractModel{T},Array{T,1}}",
+    "page": "Estimating the Model",
+    "title": "DSGE.prior_posterior_means_table",
+    "category": "Method",
+    "text": "prior_posterior_means_table(m, post_means; subset_string = \"\")\n\nProduces a table of prior means and posterior means. Saves to:\n\ntablespath(m, \"estimate\", \"prior_posterior_means[_sub=$subset_string].tex\")\n\n\n\n"
+},
+
+{
+    "location": "estimation.html#DSGE.prior_posterior_moments_table-Tuple{DSGE.AbstractModel{T},Array{T,1},Array{T,2}}",
+    "page": "Estimating the Model",
+    "title": "DSGE.prior_posterior_moments_table",
+    "category": "Method",
+    "text": "prior_posterior_moments_table(m, post_means, post_bands; percent = 0.9,\n    subset_string = \"\")\n\nProduces a table of prior means, prior standard deviations, posterior means, and 90% bands for posterior draws. Saves to:\n\ntablespath(m, \"estimate\", \"moments[_sub=$subset_string].tex\")\n\n\n\n"
+},
+
+{
+    "location": "estimation.html#DSGE.prior_table-Tuple{DSGE.AbstractModel{T}}",
+    "page": "Estimating the Model",
+    "title": "DSGE.prior_table",
+    "category": "Method",
+    "text": "prior_table(m; subset_string = \"\", groupings = Dict{String, Vector{Parameter}}())\n\n\n\n"
 },
 
 {
@@ -1062,6 +1270,118 @@ var documenterSearchIndex = {"docs": [
     "title": "Output Analysis",
     "category": "section",
     "text": "Modules = [DSGE]\nPages   = [\"moments.jl\"]\nOrder   = [:function, :type]"
+},
+
+{
+    "location": "forecast.html#",
+    "page": "Forecasting",
+    "title": "Forecasting",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "forecast.html#Forecasting-1",
+    "page": "Forecasting",
+    "title": "Forecasting",
+    "category": "section",
+    "text": "CurrentModule = DSGE"
+},
+
+{
+    "location": "forecast.html#DSGE.forecast_one",
+    "page": "Forecasting",
+    "title": "DSGE.forecast_one",
+    "category": "Function",
+    "text": "forecast_one(m, input_type, cond_type, output_vars; df = DataFrame(),\n    subset_inds = 1:0, forecast_string = \"\", verbose = :low)\n\nCompute and save output_vars for input draws given by input_type and conditional data case given by cond_type.\n\nInputs\n\nm::AbstractModel\n: model object\n\ninput_type::Symbol\n: one of:\n\n  - `:mode`: forecast using the modal parameters only\n  - `:mean`: forecast using the mean parameters only\n  - `:init`: forecast using the initial parameter values only\n  - `:full`: forecast using all parameters (full distribution)\n  - `:subset`: forecast using a well-defined user-specified subset of draws\n\ncond_type::Symbol\n: one of:\n\n  - `:none`: no conditional data\n  - `:semi`: use \"semiconditional data\" - average of quarter-to-date\n    observations for high frequency series\n  - `:full`: use \"conditional data\" - semiconditional plus nowcasts for\n    desired observables\n\noutput_vars::Vector{Symbol}\n: vector of desired output variables. See   \n?forecast_one_draw\n.\n\nKeyword Arguments\n\ndf::DataFrame\n: Historical data. If \ncond_type in [:semi, :full]\n, then the    final row of \ndf\n should be the period containing conditional data. If not    provided, will be loaded using \nload_data\n with the appropriate \ncond_type\nsubset_inds::Range{Int64}\n: indices specifying the draws we want to use. If a   more sophisticated selection criterion is desired, the user is responsible for   determining the indices corresponding to that criterion. If \ninput_type\n is   not \nsubset\n, \nsubset_inds\n will be ignored\nforecast_string::AbstractString\n: short string identifying the subset to be   appended to the output filenames. If \ninput_type = :subset\n and   \nforecast_string\n is empty, an error is thrown.\nverbose::Symbol\n: desired frequency of function progress messages printed to   standard out. One of \n:none\n, \n:low\n, or \n:high\n.\n\nOutputs\n\nNone. Output is saved to files returned by get_forecast_output_files(m, input_type, cond_type, output_vars).\n\n\n\n"
+},
+
+{
+    "location": "forecast.html#Procedure-1",
+    "page": "Forecasting",
+    "title": "Procedure",
+    "category": "section",
+    "text": "In the forecast step, we compute smoothed histories, forecast, compute shock decompositions, and compute impulse response functions (IRFs) for states, observables, shocks, and pseudo-observables. To run a forecast on one combination of input parameter type (e.g. modal parameters or full-distribution) and conditional type, call forecast_one.Main Steps:Prepare forecast inputs:\n Add required output types, load data, and load   draws of parameter vectors saved from the estimation step.Compute forecast outputs:\n Carry out desired combination of smoothing,   forecasting, computing shock decompositions, and computing IRFs. See   \nForecast Outputs\n for a list of possible forecast   outputs.Save forecast outputs:\n Save each forecast output as an array to its own   file, along with some metadata.DSGE.forecast_oneFor example, to do an unconditional forecast of states and observables using the modal parameters, call:m = AnSchorfheide()\nforecast_one(m, :mode, :none, [:forecaststates, forecastobs])Full-Distribution Forecasts:Full-distribution forecasts are computed in blocks. The size of each block defaults to 5000 draws (before thinning by get_setting(m, :forecast_jstep)), but can be set using the :forecast_block_size Setting. For each block, draws are read in on the originator process, then computation proceeds in parallel using pmap. When all draws in the block are finished, the forecast outputs are reassembled on the originator process and appended to the HDF5 dataset in their respective output files.To fully take advantage of the parallelization, the user is responsible for adding processes before calling forecast_one, either by calling addprocs or using one of the functions defined in ClusterManagers.jl. For example, to run a full-distribution unconditional forecast using 10 processes:my_procs = addprocs(10)\n@everywhere using DSGE\n\nm = AnSchorfheide()\nforecast_one(m, :full, :none, [:forecaststates, forecastobs])\n\nrmprocs(my_procs)Notice that it is necessary to load DSGE on all processes using @everywhere using DSGE before calling forecast_one.By default, full-distribution forecasts start from the first block. However, if you want to start the forecast from a later block, you can also do so. For example:m <= Setting(:forecast_start_block, Nullable{Int64}(2),\n    \"Block at which to resume forecasting (possibly null)\")"
+},
+
+{
+    "location": "forecast.html#Forecast-Outputs-1",
+    "page": "Forecasting",
+    "title": "Forecast Outputs",
+    "category": "section",
+    "text": "A forecast output (i.e. an output_var) is a combination of what we call a \"product\" and a \"class\". The possible classes are states (:states), observables (:obs), pseudo-observables (:pseudo), and shocks (:shock). The possible forecast products are:Smoothed histories (\n:hist\n): use the smoother specified by   \nforecast_smoother(m)\n to get smoothed histories of each class.Forecasts (\n:forecast\n): iterate the state space forward from the last   filtered state, either using a specified set of shock innovations or by   drawing these from a distribution. Forecasts in which we enforce the zero   lower bound are denoted as \n:bddforecast\n.Shock decompositions (\n:shockdec\n): starting from an initial state of zero,   iterate the state space forward from the first historical period up through   the last forecast horizon. Use the smoothed historical shocks for one shock at   a time during the historical periods and no shocks during the forecast   periods.Deterministic trends (\n:dettrend\n): iterate the state space forward from first   historical state up through the last forecast horizon without any shocks.Trends (\n:trend\n): for each class, just the constant term in that class's   equation, i.e. the \nCCC\n vector from the transition equation for states, the   \nDD\n vector from the measurement equation for observables, and the \nDD_pseudo\n   vector from the pseuodo-measurement equation for pseudo-observables.IRFs (\n:irf\n): see   \nImpulse response\n. Our IRFs are   in response to a shock of size -1 standard deviation.An output_var is then just a Symbol with a product and class concatenated, e.g. :histstates for smoothed historical states.It is not necessary to compute all forecast outputs in one call to forecast_one. Which steps are run depends on which output_vars are passed in."
+},
+
+{
+    "location": "forecast.html#Preparing-Forecast-Inputs-1",
+    "page": "Forecasting",
+    "title": "Preparing Forecast Inputs",
+    "category": "section",
+    "text": "Adding Required output_vars:This step is done by add_requisite_output_vars:If \n:forecast<class>\n is in \noutput_vars\n, then \n:bddforecast<class>\n is also   added. Hence we always forecast both with and without enforcing the ZLB.\nIf \n:shockdec<class>\n is in \noutput_vars\n, then \n:dettrend<class>\n and   \n:trend<class>\n are also added. This is because to plot shock decompositions,   we also need the trend and the deterministic trend.Loading Data:This is done the usual way, using load_data with the appropriate cond_type.Loading Draws:By default, the draws are loaded from the file whose path is given by get_forecast_input_file. However, you can override the default input file for a given input type by adding entries to the Dict{Symbol, ASCIIString} returned from forecast_input_file_overrides(m). For example:overrides = forecast_input_file_overrides(m)\noverrides[:mode] = \"path/to/input/file.h5\"Note that load_draws expects an HDF5 dataset called either params (for input_type in [:mode, :mean]) or mhparams (for input_type in [:full, :subset])."
+},
+
+{
+    "location": "forecast.html#Computing-Forecast-Outputs-1",
+    "page": "Forecasting",
+    "title": "Computing Forecast Outputs",
+    "category": "section",
+    "text": "Smoothing:Smoothing is necessary if either:You explicitly want the smoothed histories, or\nYou want to compute shock decompositions or deterministic trends, which use   the smoothed historical shocksIt is not necessary to keep track of these cases, however - forecast_one will deduce from the specified output_vars whether or not it is necessary to filter and smooth in order to produce your output_vars.Forecasting:Forecasting begins from the last filtered historical state, which is obtained from the Kalman filter. forecast accepts a keyword argument enforce_zlb, which indicates whether to enforce the zero lower bound. If enforce_zlb = true, then if in a given period, the forecasted interest rate goes below forecast_zlb_value(m), we solve for the interest rate shock necessary to push it up to the ZLB. A forecast in which the ZLB is enforced corresponds to the product :bddforecast.Shock Decompositions, Deterministic Trends, and Trends:Since shock decompositions have an additional dimension (e.g. nstates x nperiods x nshocks for a single draw of state shock decompositions, compared to nstates x nperiods for a single draw of forecasted states), we usually wish to truncate some periods before returning. This behavior is governed by the Settings :shockdec_starttdate and :shockdec_enddate, which are of type Nullable{Date}.Deterministic trends are also saved only for date_shockdec_start(m) and date_shockdec_end(m). Trends are not time-dependent.Impulse Response Functions:Like shock decompositions, IRFs have three dimensions (e.g. nstates x nperiods x nshocks) for each draw."
+},
+
+{
+    "location": "forecast.html#Saving-Forecast-Outputs-1",
+    "page": "Forecasting",
+    "title": "Saving Forecast Outputs",
+    "category": "section",
+    "text": "Forecast outputs are saved in the location specified by get_forecast_output_files(m), which is typically a subdirectory of saveroot(m). Each output_var is saved in its own JLD file, which contains the following datasets:arr::Array\n: actual array of forecast outputs. For trends, this array is of   size \nndraws\n x \nnvars\n. For histories, forecasts, and deterministic trends,   it is \nndraws\n x \nnvars\n x \nnperiods\n. For shock decompositions and IRFs, it   is \nndraws\n x \nnvars\n x \nnperiods\n x \nnshocks\n. (In all of these, \nnvars\n   refers to the number of variables of the output class.)date_indices::Dict{Date, Int}\n: maps \nDate\ns to their indices along the   \nnperiods\n dimension of \narr\n. Not saved for IRFs.<class>_names::Dict{Symbol, Int}\n: maps names of variables of the output   class (e.g. \n:OutputGap\n) into their indices along the \nnvars\n dimension of   \narr\n.<class>_revtransforms::Dict{Symbol, Symbol}\n: maps names of variables to the   names of the reverse transforms (from model units into plotting units)   associated with those variables. For example,   \npseudoobservable_revtransforms[:π_t] = :quartertoannual\n.shock_names::Dict{Symbol, Int}\n: for shock decompositions and IRFs only, maps   names of shocks into their indices along the \nnshocks\n dimension of \narr\n.Some helpful functions for getting file names, as well as reading and writing forecast outputs, include:get_forecast_input_file\nget_forecast_filename\nget_forecast_output_files\nwrite_forecast_outputs\nwrite_forecast_block\nwrite_forecast_metadata\nread_forecast_metadata\nread_forecast_output"
+},
+
+{
+    "location": "means_bands.html#",
+    "page": "Computing Means and Bands",
+    "title": "Computing Means and Bands",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "means_bands.html#Computing-Means-and-Bands-1",
+    "page": "Computing Means and Bands",
+    "title": "Computing Means and Bands",
+    "category": "section",
+    "text": "CurrentModule = DSGE"
+},
+
+{
+    "location": "means_bands.html#DSGE.means_bands_all",
+    "page": "Computing Means and Bands",
+    "title": "DSGE.means_bands_all",
+    "category": "Function",
+    "text": "means_bands_all(m, input_type, cond_type, output_vars; forecast_string = \"\",\n    density_bands = [0.5, 0.6, 0.7, 0.8, 0.9], minimize = false, verbose = :low)\n\nmeans_bands_all(input_type, cond_type, output_vars, input_dir, output_dir,\n    filestring_base; forecast_string = \"\", density_bands = [0.5, 0.6, 0.7, 0.8, 0.9],\n    minimize = false, population_mnemonic = Nullable{Symbol}(),\n    population_data_file = \"\", population_forecast_file = \"\",\n    y0_indexes = Dict{Symbol, Int}(), data = Matrix{T}(),\n    verbose = :low)\n\nComputes means and bands for pseudo-observables, observables, and shocks, and writes the results to a file. Two methods are provided. The method that accepts a model object as an argument uses the model's settings to infer the arguments to the second method. Users can optionally skip construction of a model object and manually enter the directory and file names.\n\nBelow, T<:AbstractFloat:\n\nInput Arguments\n\nm::AbstractModel\n: model object\ninput_type::Symbol\n: see \nforecast_one\ncond_type::Symbol\n: see \nforecast_one\noutput_vars::Vector{Symbol}\n: see \nforecast_one\n\nMethod 2 only:\n\ninput_dir::AbstractString\n: directory from which the forecast outputs are to   be read in\noutput_dir::AbstractString\n: directory to which the means and bands are to be   saved\nfilestring_base::Vector{ASCIIString}\n: should be equivalent to the result of   \nfilestring_base(m)\n\nKeyword Arguments\n\nforecast_string::AbstractString\n: forecast identifier string (the value   \"fcid=value\" in the forecast output filename). Required when   \ninput_type == :subset\n\ndensity_bands::Vector{T}\n: a vector of percent values (between 0 and 1) for   which to compute density bands\n\nminimize::Bool\n: if \ntrue\n, choose shortest interval, otherwise just chop off   lowest and highest (percent/2)\n\nverbose\n: level of error messages to be printed to screen. One of \n:none\n,   \n:low\n, \n:high\n\nMethod 2 only:\n\npopulation_mnemonic::Nullable{Symbol}\n: the result of    \nget_setting(m, :population_mnemonic\n. Typically \nNullable(:CNP16OV__FRED)\n.\n\npopulation_data_file::AbstractString\n: path to population data (in levels)   file. In the first method, the following file is used, if it exists:   \ninpath(m, \"data\", \"population_data_levels_(data_vintage(m)).csv\")\n\npopulation_forecast_file::S\n: path to population forecast (in levels)   file. In the first method, if \nuse_population_forecast(m)\n, the following file   is used, if it exists:   \ninpath(m, \"data\", \"population_forecast_(data_vintage(m)).csv\")\n\ny0_indexes::Dict{Symbol, Int}\n: A \nDict\n storing the mapping of products to   the index of the first period of data needed to compute the product's   transformation. This is used to compute growth rates and four-quarter   cumulations (among others). See \nget_y0_index\n.\n\ndata::Matrix{T}\n: pre-loaded \nnobs x nperiods\n matrix containing the   (untransformed) data matrix.\n\n\n\n"
+},
+
+{
+    "location": "means_bands.html#Procedure-1",
+    "page": "Computing Means and Bands",
+    "title": "Procedure",
+    "category": "section",
+    "text": "After running a full-distribution forecast, we are often interested in finding means and density bands of the various forecast outputs. This will allow us to plot our estimation of the full distribution of the forecast outputs.Main Steps:Load data:\n Load and transform data, population data, and population forecast   (required for forecast output transformations)Read in forecast outputs:\n Read in the outputs saved by   \nforecast_one\n, one variable (e.g. one observable) and one   \noutput_type\n at a time.Transform forecast outputs:\n If necessary, use \nreverse_transform\n to apply   transformations specified in the \nObservable\n or \nPseudoObservable\n type to   the given forecast output series.Compute means and bands:\n Compute the means and density bands of the forecast   output.Write to file:\n For each \noutput_var\n, Write a \nMeansBands\n object (see   \nThe MeansBands Type\n below) to the file specified by   \nget_meansbands_output_files(m)\n.Computing means and bands is done by calling means_bands_all. If desired, you can also write your computed means and bands as matrices by calling meansbands_matrix_all.For example, to compute means and bands for an unconditional, full-distribution forecast of states and observables:m = AnSchorfheide()\nmeans_bands_all(m, :mode, :none, [:forecaststates, forecastobs])means_bands_all"
+},
+
+{
+    "location": "means_bands.html#DSGE.MeansBands",
+    "page": "Computing Means and Bands",
+    "title": "DSGE.MeansBands",
+    "category": "Type",
+    "text": "type MeansBands\n\nStores the means and bands of results for a particular set of outputs from the forecast step.\n\nSpecifically, forecasts can be made for any element in the Cartesian product of 4 sets:\n\ninput_type\n: some subset of the parameter draws from the estimation    step. See \nforecast_one\n for all possible options.\n\ncond_type\n: conditional type. See \nforecast_one\n for all possible options.\n\nproduct\n: a particular result computed in the forecast. This could be one of    the following:\n\n  - `hist`: smoothed histories\n  - `forecast`: forecasted values\n  - `shockdec`: shock decompositions\n  - `irf`: impulse responses\n\nvariable \nclass\n: the category in which a particular variable, like \n:y_t\n,    falls. Options are:\n\n  - `state`: state (from `m.endogenous_states` or `m.endogenous_states_augmented`)\n  - `obs`: observable (from `m.observables`)\n  - `pseudo`: pseudoobservable (from `pseudo_measurement` equation)\n  - `shock`: shock (from `m.exogenous_shocks`)\n\nNote that the Cartesian product (product x class) is the set of options for output_vars in the forecast_one function signature.\n\nFields\n\nmetadata::Dict{Symbol,Any}\n: Contains metadata keeping track of the   \ninput_type\n, \ncond_type\n, product (history, forecast, shockdec,   etc), and variable class (observable, pseudoobservable, state, etc)   stored in this \nMeansBands\n structure.\nmeans::DataFrame\n: a \nDataFrame\n of the mean of the time series\nbands::Dict{Symbol,DataFrame}\n: a \nDict\n mapping variable names to   \nDataFrame\ns containing confidence bands for each variable. See   \nfind_density_bands\n for more information.\n\n\n\n"
+},
+
+{
+    "location": "means_bands.html#The-MeansBands-Type-1",
+    "page": "Computing Means and Bands",
+    "title": "The MeansBands Type",
+    "category": "section",
+    "text": "MeansBands"
 },
 
 {
@@ -1149,7 +1469,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Algorithms",
     "title": "DSGE.metropolis_hastings",
     "category": "Function",
-    "text": "metropolis_hastings{T<:AbstractFloat}(propdist::Distribution, m::AbstractModel,\n    data::Matrix{T}, cc0::T, cc::T; verbose::Symbol = :low)\n\nImplements the Metropolis-Hastings MCMC algorithm for sampling from the posterior distribution of the parameters.\n\nArguments\n\npropdist\n The proposal distribution that Metropolis-Hastings begins sampling from.\nm\n: The model object\ndata\n: Data matrix for observables\ncc0\n: Jump size for initializing Metropolis-Hastings.\ncc\n: Jump size for the rest of Metropolis-Hastings.\n\nOptional Arguments\n\nverbose\n: The desired frequency of function progress messages printed to standard out.\n:none\n: No status updates will be reported.\n:low\n: Status updates provided at each block.\n:high\n: Status updates provided at each draw.\n\n\n\n"
+    "text": "metropolis_hastings{T<:AbstractFloat}(propdist::Distribution, m::AbstractModel,\n    data::Matrix{T}, cc0::T, cc::T; verbose::Symbol = :low)\n\nImplements the Metropolis-Hastings MCMC algorithm for sampling from the posterior distribution of the parameters.\n\nArguments\n\npropdist\n: The proposal distribution that Metropolis-Hastings begins sampling from.\nm\n: The model object\ndata\n: Data matrix for observables\ncc0\n: Jump size for initializing Metropolis-Hastings.\ncc\n: Jump size for the rest of Metropolis-Hastings.\n\nOptional Arguments\n\nverbose\n: The desired frequency of function progress messages printed to   standard out. One of:\n\n   - `:none`: No status updates will be reported.\n   - `:low`: Status updates provided at each block.\n   - `:high`: Status updates provided at each draw.\n\n\n\n"
 },
 
 {
@@ -1161,19 +1481,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "algorithms.html#DSGE.kalman_filter",
+    "location": "algorithms.html#State-Space-Filters-and-Smoothers-1",
     "page": "Algorithms",
-    "title": "DSGE.kalman_filter",
-    "category": "Function",
-    "text": "kalman_filter(data, lead, a, F, b, H, var, z0, vz0, Ny0; allout=false)\nkalman_filter(data, lead, a, F, b, H, var, Ny0=0; allout=false)\n\nInputs\n\ndata\n: a \nNy x T\n matrix containing data \ny(1), ... , y(T)\n.\nlead\n: the number of steps to forecast after the end of the data.\na\n: an \nNz x 1\n vector for a time-invariant input vector in the transition equation.\nF\n: an \nNz x Nz\n matrix for a time-invariant transition matrix in the transition   equation.\nb\n: an \nNy x 1\n vector for a time-invariant input vector in the measurement equation.\nH\n: an \nNy x Nz\n matrix for a time-invariant measurement matrix in the measurement   equation.\nvar\n: an \nNy + Nz\n x \nNy + Nz\n matrix for a time-invariant variance matrix for the   error in the transition equation and the error in the measurement equation, that is,   \n[η(t)', ϵ(t)']'\n.\nz0\n: an optional \nNz x 1\n initial state vector.\nvz0\n: an optional \nNz x Nz\n covariance matrix of an initial state vector.\nNy0\n: an optional scalar indicating the number of periods of presample (i.e. the number   of periods which we don't add to the likelihood)\nallout\n: an optional keyword argument indicating whether we want optional output   variables returned as well\n\nOutputs\n\nlogl\n: value of the average log likelihood function of the SSM under assumption that   observation noise ϵ(t) is normally distributed\npred\n: a \nNz\n x \nT+lead\n matrix containing one-step predicted state vectors.\nvpred\n: a \nNz\n x \nNz\n x \nT+lead\n matrix containing mean square errors of predicted   state vectors.\nfilt\n: an optional \nNz\n x \nT\n matrix containing filtered state vectors.\nvfilt\n: an optional \nNz\n x \nNz\n x \nT\n matrix containing mean square errors of filtered   state vectors.\n\nNotes\n\nThe state space model is defined as follows:\n\nz(t+1) = a+F*z(t)+η(t)     (state or transition equation)\ny(t) = b+H*z(t)+ϵ(t)       (observation or measurement equation)\n\nWhen z0 and Vz0 are omitted, the initial state vector and its covariance matrix of the time invariant Kalman filters are computed under the stationarity condition:\n\nz0 = (I-F)\nvz0 = (I-kron(F,F))(V(:),Nz,Nz)\n\nwhere F and V are the time invariant transition matrix and the covariance matrix of transition equation noise, and vec(V) is an Nz^2 x 1 column vector that is constructed by stacking the Nz columns of V.  Note that all eigenvalues of F are inside the unit circle when the state space model is stationary.  When the preceding formula cannot be applied, the initial state vector estimate is set to a and its covariance matrix is given by 1E6I.  Optionally, you can specify initial values.\n\n\n\n"
-},
-
-{
-    "location": "algorithms.html#State-Space-Routines-1",
-    "page": "Algorithms",
-    "title": "State Space Routines",
+    "title": "State Space Filters and Smoothers",
     "category": "section",
-    "text": "Modules = [DSGE]\nPages   = [\"kalman.jl\"]\nOrder   = [:function, :type]"
+    "text": "See StateSpaceRoutines.jl."
 },
 
 {
