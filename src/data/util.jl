@@ -32,13 +32,13 @@ Convert `string` in the form "YYqX", "YYYYqX", or "YYYY-qX" to a Date of the end
 the indicated quarter. "X" is in `{1,2,3,4}` and the case of "q" is ignored.
 """
 function quartertodate(string::String)
-    if ismatch(r"^[0-9]{2}[qQ][1-4]$", string)
+    if occursin(r"^[0-9]{2}[qQ][1-4]$", string)
         year = "20"*string[1:2]
         quarter = string[end]
-    elseif ismatch(r"^[0-9]{4}[qQ][1-4]$", string)
+    elseif occursin(r"^[0-9]{4}[qQ][1-4]$", string)
         year = string[1:4]
         quarter = string[end]
-    elseif ismatch(r"^[0-9]{4}-[qQ][1-4]$", string)
+    elseif occursin(r"^[0-9]{4}-[qQ][1-4]$", string)
         year = string[1:4]
         quarter = string[end]
     else
@@ -106,7 +106,7 @@ missing2nan!(df::DataArray)
 
 Convert all elements of Union{X, Missing.Missing} and the like to type X.
 """
-function missing2nan!(v::DataArray)
+function missing2nan!(v::Array{Union{T, Missing}}) where {T}
     valid_types = [Date, Float64]
     new_v = tryparse.(new_type, v)
     if all(isnull.(new_v))
@@ -134,7 +134,7 @@ na2nan!(df::DataArray)
 
 Convert all NAs in a DataArray to NaNs.
 """
-function na2nan!(v::DataArray)
+function na2nan!(v::Array{Union{T, Missing}}) where {T}
     for i = 1:length(v)
         v[i] = ismissing(v[i]) ?  NaN : v[i]
     end
@@ -184,11 +184,11 @@ function get_data_filename(m::AbstractModel, cond_type::Symbol)
 
     # If writing conditional data, append conditional vintage and ID to filename
     if cond_type in [:semi, :full]
-        push!(filestrings, "cdid=" * lpad(cond_id(m), 2, 0))
+        push!(filestrings, "cdid=" * lpad(cond_id(m), 2, '0'))
         push!(filestrings, "cdvt=" * cond_vintage(m))
     end
 
-    push!(filestrings, "dsid=" * lpad(data_id(m), 2, 0))
+    push!(filestrings, "dsid=" * lpad(data_id(m), 2, '0'))
     push!(filestrings, "vint=" * data_vintage(m))
     filename = join(filestrings, "_")
 

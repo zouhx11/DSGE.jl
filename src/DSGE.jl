@@ -1,12 +1,14 @@
 isdefined(Base, :__precompile__) && __precompile__()
 
 module DSGE
-    using Base.Dates, Base.Test, BenchmarkTools
-    using CSV, DataFrames, DataArrays, Distributions, FredData, HDF5, JLD, Optim, Plots, RecipesBase, StateSpaceRoutines, StatPlots
+    using Dates, Test, BenchmarkTools
+    using CSV, DataFrames, Distributions, FredData, HDF5, JLD2, Optim, Plots, RecipesBase, StateSpaceRoutines, StatPlots
     using DataStructures: SortedDict, insert!, ForwardOrdering, OrderedDict
     using QuantEcon: solve_discrete_lyapunov
     using Roots: fzero, ConvergenceFailed
     using StatsBase: sample
+    using Printf, Nullables
+    using LinearAlgebra, Random, Distributed
     import Calculus
     import Optim: optimize, SecondOrderOptimizer, MultivariateOptimizationResults
 

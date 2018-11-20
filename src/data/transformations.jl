@@ -1,3 +1,4 @@
+using SparseArrays
 """
 `annualtoquarter(v)`
 
@@ -174,7 +175,7 @@ end
 difflog(x::DataArray{AbstractFloat})
 ```
 """
-function difflog(x::DataArray)
+function difflog(x::Array{Union{T, Missing}}) where {T}
     DSGE.na2nan!(x)
     return difflog(convert(Vector, x))
 end

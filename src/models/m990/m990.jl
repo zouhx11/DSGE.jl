@@ -3,7 +3,7 @@
 Model990{T} <: AbstractModel{T}
 ```
 
-The `Model990` type defines the structure of the New York Fed DSGE model.
+The `Model990` type defines the mutable structure of the New York Fed DSGE model.
 
 ### Fields
 
@@ -79,7 +79,7 @@ equilibrium conditions.
   dictionary that stores names and transformations to/from model units. See
   `PseudoObservable` for further details.
 """
-type Model990{T} <: AbstractModel{T}
+mutable struct Model990{T} <: AbstractModel{T}
     parameters::ParameterVector{T}                         # vector of all time-invariant model parameters
     steady_state::ParameterVector{T}                       # model steady-state values
     keys::OrderedDict{Symbol,Int}                          # human-readable names for all the model

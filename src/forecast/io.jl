@@ -1,3 +1,5 @@
+import OrderedCollections
+
 """
 ```
 get_forecast_input_file(m, input_type)
@@ -87,7 +89,7 @@ function get_forecast_filename(directory::String, filestring_base::Vector{String
     # Gather all of the file strings into an array
     filestring_addl = get_forecast_filestring_addl(input_type, cond_type,
                                                    forecast_string = forecast_string)
-
+    @show  savepath(directory, file_name, filestring_base, filestring_addl)
     return savepath(directory, file_name, filestring_base, filestring_addl)
 end
 
@@ -179,9 +181,9 @@ function write_forecast_outputs(m::AbstractModel, input_type::Symbol,
                                 forecast_output_files::Dict{Symbol, String},
                                 forecast_output::Dict{Symbol, Array{Float64}};
                                 df::DataFrame = DataFrame(),
-                                block_number::Nullable{Int64} = Nullable{Int64}(),
-                                block_inds::Range{Int64} = 1:0,
-                                subset_inds::Range{Int64} = 1:0,
+                                block_number::Union{Int64, Nothing} = Nothing,
+                                block_inds::UnitRange{Int64} = 1:0,
+                                subset_inds::UnitRange{Int64} = 1:0,
                                 verbose::Symbol = :low)
 
     for var in output_vars
@@ -192,44 +194,42 @@ function write_forecast_outputs(m::AbstractModel, input_type::Symbol,
             continue
         end
         filepath = forecast_output_files[var]
-        if isnull(block_number) || get(block_number) == 1
-            jldopen(filepath, "w") do file
-                write_forecast_metadata(m, file, var)
+        if isnull(block_number) || block_number == 1
+            write_forecast_metadata(m, filepath, var)
+            if var == :histobs
+                # :histobs just refers to data, so we only write one draw
+                # (as all draws would be the same)
+                @assert !isempty(df) "df cannot be empty if trying to write :histobs"
+                df1 = df[date_mainsample_start(m) .<= df[:date] .<= date_mainsample_end(m), :]
+                data = df_to_matrix(m, df1)
+                save(filepath, "arr", data)
 
-                if var == :histobs
-                    # :histobs just refers to data, so we only write one draw
-                    # (as all draws would be the same)
-                    @assert !isempty(df) "df cannot be empty if trying to write :histobs"
-                    df1 = df[date_mainsample_start(m) .<= df[:date] .<= date_mainsample_end(m), :]
-                    data = df_to_matrix(m, df1)
-                    write(file, "arr", data)
+            else
+                # Otherwise, pre-allocate HDF5 dataset which will contain
+                # all draws
+                if !isnull(block_number) && block_number == 1
+                    # Determine forecast output size
+                    dims  = get_forecast_output_dims(m, input_type, var; subset_inds = subset_inds)
+                    block_size = forecast_block_size(m)
+                    chunk_dims = collect(dims)
+                    chunk_dims[1] = block_size
 
-                else
-                    # Otherwise, pre-allocate HDF5 dataset which will contain
-                    # all draws
-                    if !isnull(block_number) && get(block_number) == 1
-                        # Determine forecast output size
-                        dims  = get_forecast_output_dims(m, input_type, var; subset_inds = subset_inds)
-                        block_size = forecast_block_size(m)
-                        chunk_dims = collect(dims)
-                        chunk_dims[1] = block_size
-
-                        # Initialize dataset
-                        pfile = file.plain
-                        HDF5.d_create(pfile, "arr", datatype(Float64), dataspace(dims...), "chunk", chunk_dims)
+                    # Initialize dataset
+                    h5open(filepath,"w") do file
+                        HDF5.d_create(file, "arr", datatype(Float64), dataspace(dims...), "chunk", chunk_dims)
                     end
                 end
             end
+
         end
 
         if var != :histobs
-            jldopen(filepath, "r+") do file
-                if isnull(block_number)
-                    write(file, "arr", forecast_output[var])
-                else
-                    write_forecast_block(file, forecast_output[var], block_inds)
-                end
+            if isnull(block_number)
+                save(filepath, "arr", forecast_output[var])
+            else
+                write_forecast_block(filepath, forecast_output[var], block_inds)
             end
+
         end
 
         if VERBOSITY[verbose] >= VERBOSITY[:high]
@@ -259,7 +259,7 @@ forecast output array. The saved dictionaries include:
 
 Note that we don't save dates or transformations for impulse response functions.
 """
-function write_forecast_metadata(m::AbstractModel, file::JLD.JldFile, var::Symbol)
+function write_forecast_metadata(m::AbstractModel, filepath::String, var::Symbol)
 
     prod  = get_product(var)
     class = get_class(var)
@@ -273,49 +273,64 @@ function write_forecast_metadata(m::AbstractModel, file::JLD.JldFile, var::Symbo
         elseif prod in [:shockdec, :dettrend, :trend]
             quarter_range(date_shockdec_start(m), date_shockdec_end(m))
         end
+        date_indices = Dict(Dates.format(d, "yyyy-mm-dd")::String => i::Int for (i, d) in enumerate(dates))
 
-        date_indices = Dict(d::Date => i::Int for (i, d) in enumerate(dates))
-        write(file, "date_indices", date_indices)
+        jldopen(filepath, "w") do file
+            write(file, "date_indices", date_indices)
+        end
     end
 
     # Write state names
     if class == :states
+        @show class
         state_indices = merge(m.endogenous_states, m.endogenous_states_augmented)
         @assert length(state_indices) == n_states_augmented(m) # assert no duplicate keys
-        write(file, "state_indices", state_indices)
+        jldopen(filepath, "w") do file
+            write(file, "state_indices", state_indices)
+        end
         rev_transforms = Dict{Symbol,Symbol}(x => Symbol("DSGE.identity") for x in keys(state_indices))
-        write(file, "state_revtransforms", rev_transforms)
+        jldopen(filepath, "w") do file
+            write(file, "state_revtransforms", state_revtransforms)
+        end
     end
 
     # Write observable names and transforms
     if class == :obs
-        write(file, "observable_indices", m.observables)
+        jldopen(filepath, "w") do file
+            write(file, "observable_indices", m.observables)
+        end
         rev_transforms = if prod != :irf
             Dict{Symbol,Symbol}(x => Symbol(m.observable_mappings[x].rev_transform) for x in keys(m.observables))
         else
             Dict{Symbol,Symbol}(x => Symbol("DSGE.identity") for x in keys(m.observables))
         end
-        write(file, "observable_revtransforms", rev_transforms)
+        jldopen(filepath, "w") do file
+            write(file, "observable_revtransforms", rev_transforms)
+        end
+        @show x  = jldopen(filepath, "r") do file
+            read(file, "observable_indices")
+        end
     end
 
     # Write pseudo-observable names and transforms
     if class == :pseudo
-        write(file, "pseudoobservable_indices", m.pseudo_observables)
+        @show class
+        save(filepath, "pseudoobservable_indices", m.pseudo_observables)
         rev_transforms = if prod != :irf
             Dict{Symbol,Symbol}(x => Symbol(m.pseudo_observable_mappings[x].rev_transform)
                                 for x in keys(m.pseudo_observables))
         else
             Dict{Symbol,Symbol}(x => Symbol("DSGE.identity") for x in keys(m.pseudo_observables))
         end
-        write(file, "pseudoobservable_revtransforms", rev_transforms)
+        save(filepath, "pseudoobservable_revtransforms", rev_transforms)
     end
 
     # Write shock names and transforms
     if class in [:shocks, :stdshocks] || prod in [:shockdec, :irf]
-        write(file, "shock_indices", m.exogenous_shocks)
+        save(filepath, "shock_indices", m.exogenous_shocks)
         if class in [:shocks, :stdshocks]
             rev_transforms = Dict{Symbol,Symbol}(x => Symbol("DSGE.identity") for x in keys(m.exogenous_shocks))
-            write(file, "shock_revtransforms", rev_transforms)
+        save(filepath, "shock_revtransforms", rev_transforms)
         end
     end
 end
@@ -328,12 +343,16 @@ write_forecast_block(file::JLD.JldFile, arr::Array, block_number::Int,
 
 Writes `arr` to the subarray of `file` indicated by `block_inds`.
 """
-function write_forecast_block(file::JLD.JldFile, arr::Array,
-                              block_inds::Range{Int64})
-    pfile = file.plain
-    dataset = HDF5.d_open(pfile, "arr")
+function write_forecast_block(filepath::String, arr::Array,
+                              block_inds::UnitRange{Int64})
+    dataset = jldopen(filepath, "r") do file
+                read(file, "arr")
+            end
     ndims = length(size(dataset))
     dataset[block_inds, fill(Colon(), ndims-1)...] = arr
+    jldopen(filepath, "w") do file
+        write(file, "arr", dataset)
+    end
 end
 
 """
@@ -358,19 +377,27 @@ their respective indices in the saved forecast output array. Depending on the
 - `shock_revtransforms::Dict{Symbol, Symbol}`: shocks are not transformed, so
   all values are `:identity`
 """
-function read_forecast_metadata(file::JLD.JldFile)
+function read_forecast_metadata(filepath::String)
     metadata = Dict{Symbol, Any}()
-    for field in setdiff(names(file), "arr")
-        metadata[Symbol(field)] = read(file, field)
+
+    var_names = jldopen(filepath) do file
+                    names(file)
+                end
+    for field in setdiff(var_names, "arr")
+        metadata[Symbol(field)] = load(filepath)[field]
+        if field == "date_indices"
+            metadata[Symbol(field)] = Dict(Dates.Date(d, "yyyy-mm-dd")::Date => i::Int for (d, i) in metadata[Symbol(field)])
+        end
     end
     return metadata
 end
 
 function read_forecast_output(m::AbstractModel, input_type::Symbol, cond_type::Symbol,
                               output_var::Symbol, var_name::Symbol,
-                              shock_name::Nullable{Symbol} = Nullable{Symbol}();
+                              shock_name::Union{Symbol, Nothing} = Union{Symbol, Nothing}();
                               forecast_string::String = "")
     # Get filename
+
     filename = get_meansbands_input_file(m, input_type, cond_type, output_var,
                                          forecast_string = forecast_string)
 
@@ -378,12 +405,13 @@ function read_forecast_output(m::AbstractModel, input_type::Symbol, cond_type::S
     product = get_product(output_var)
     class   = get_class(output_var)
 
-    jldopen(filename, "r") do file
+
         # Read forecast output
         fcast_series = if isnull(shock_name)
-            read_forecast_series(file, class, product, var_name)
+            read_forecast_series(filename, class, product, var_name)
+
         else
-            read_forecast_series(file, class, product, var_name, get(shock_name))
+            read_forecast_series(filename, class, product, var_name, get(shock_name))
         end
 
         # The `fcast_output` for trends only is of size `ndraws` x `nvars`. We
@@ -391,17 +419,17 @@ function read_forecast_output(m::AbstractModel, input_type::Symbol, cond_type::S
         # different in each period. Now we have something of size `ndraws` x
         # `nvars` x `nperiods`
         if product == :trend
-            nperiods = length(read(file, "date_indices"))
+            nperiods = length(load(filename)["date_indices"])
             fcast_series = repeat(fcast_series, outer = [1, nperiods])
         end
 
         # Parse transform
         class_long = get_class_longname(class)
-        transforms = read(file, string(class_long) * "_revtransforms")
+        transforms = load(filename)[string(class_long) * "_revtransforms"]
         transform = parse_transform(transforms[var_name])
 
         fcast_series, transform
-    end
+
 end
 
 """
@@ -413,15 +441,14 @@ Read only the forecast output for a particular variable (e.g. for a particular
 observable) and possibly a particular shock. Result should be a matrix of size
 `ndraws` x `nperiods`.
 """
-function read_forecast_series(file::JLD.JldFile, class::Symbol, product::Symbol, var_name::Symbol)
+function read_forecast_series(filepath::String, class::Symbol, product::Symbol, var_name::Symbol)
     # Get index corresponding to var_name
     class_long = get_class_longname(class)
-    indices = read(file, "$(class_long)_indices")
-    var_ind = indices[var_name]
+    indices = load(filepath)["$(class_long)_indices"]
+    var_ind = Dict(indices)[var_name]
 
-    pfile = file.plain
-    filename = pfile.filename
-    dataset = HDF5.d_open(pfile, "arr")
+    dataset = load(filepath)["arr"]
+    @show dataset
     ndims = length(size(dataset))
 
     # Trends are ndraws x nvars
@@ -449,26 +476,24 @@ function read_forecast_series(file::JLD.JldFile, class::Symbol, product::Symbol,
     return arr
 end
 
-function read_forecast_series(file::JLD.JldFile, class::Symbol, product::Symbol, var_name::Symbol,
+function read_forecast_series(filepath::String, class::Symbol, product::Symbol, var_name::Symbol,
                               shock_name::Symbol)
     # Get indices corresponding to var_name and shock_name
     class_long = get_class_longname(class)
-    indices = read(file, "$(class_long)_indices")
+    indices = load(filepath)["$(class_long)_indices"]
     var_ind = indices[var_name]
-    shock_indices = read(file, "shock_indices")
+    shock_indices = load(filepath)["shock_indices"]
     shock_ind = shock_indices[shock_name]
 
-    pfile = file.plain
-    filename = pfile.filename
-    dataset = HDF5.d_open(pfile, "arr")
+    dataset = load(filepath)["arr"]
     ndims = length(size(dataset))
 
     if ndims == 3 # one draw
-        arr = h5read(filename, "arr", (var_ind, Colon(), shock_ind))
+        arr = h5read(filepath, "arr", (var_ind, Colon(), shock_ind))
         arr = squeeze(arr, (1, 3))
         arr = reshape(arr, (1, length(arr)))
     elseif ndims == 4 # many draws
-        arr = h5read(filename, "arr", (Colon(), var_ind, Colon(), shock_ind))
+        arr = h5read(filepath, "arr", (Colon(), var_ind, Colon(), shock_ind))
         arr = squeeze(arr, (2, 4))
     end
 

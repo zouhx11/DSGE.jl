@@ -70,7 +70,7 @@ Syntax for adding a parameter to a model: m <= parameter.
 NOTE: If `p` is added to `m` and length(m.steady_state) > 0, `keys(m)` will not generate the
 index of `p` in `m.parameters`.
 """
-function (<=){T}(m::AbstractModel{T}, p::AbstractParameter{T})
+function (<=)(m::AbstractModel{T}, p::AbstractParameter{T}) where {T}
 
     if !in(p.key, keys(m.keys))
 
@@ -96,7 +96,7 @@ end
 Add a new steady-state value to the model by appending `ssp` to the `m.steady_state` and
 adding `ssp.key` to `m.keys`.
 """
-function (<=){T}(m::AbstractModel{T}, ssp::SteadyStateParameter)
+function (<=)(m::AbstractModel{T}, ssp::SteadyStateParameter) where {T}
 
     if !in(ssp.key, keys(m.keys))
         new_param_index = length(m.keys) + 1
@@ -601,7 +601,7 @@ paramter values.
 - `m`: the model object
 - `values`: the new values to assign to non-steady-state parameters.
 """
-function transform_to_model_space!{T<:AbstractFloat}(m::AbstractModel, values::Vector{T})
+function transform_to_model_space!(m::AbstractModel, values::Vector{T}) where {T<:AbstractFloat}
     new_values = transform_to_model_space(m.parameters, values)
     update!(m, new_values)
     steadystate!(m)
@@ -618,7 +618,7 @@ Update `m.parameters` with `values`, recomputing the steady-state parameter valu
 - `m`: the model object
 - `values`: the new values to assign to non-steady-state parameters.
 """
-function update!{T<:AbstractFloat}(m::AbstractModel, values::Vector{T})
+function update!(m::AbstractModel, values::Vector{T}) where {T<:AbstractFloat}
     update!(m.parameters, values)
     steadystate!(m)
 end
@@ -685,7 +685,7 @@ the resulting grouped bar plot is legible.
 - `shocks::Vector{Symbol}`
 - `color::Colorant`
 """
-type ShockGroup
+mutable struct ShockGroup
     name::String
     shocks::Vector{Symbol}
     color::Colorant

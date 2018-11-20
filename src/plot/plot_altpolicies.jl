@@ -36,16 +36,16 @@ Plot `var` or `vars` forecasts under the alternative policies in `models`.
 See `?histforecast` for additional keyword arguments, all of which can be passed
 into `plot_altpolicies`.
 """
-function plot_altpolicies{T<:AbstractModel}(models::Vector{T}, var::Symbol, class::Symbol,
+function plot_altpolicies(models::Vector{T}, var::Symbol, class::Symbol,
                                             cond_type::Symbol; title::String = "",
-                                            kwargs...)
+                                            kwargs...) where {T<:AbstractModel}
     plots = plot_altpolicies(models, [var], class, cond_type;
                              title = isempty(title) ? String[] : [title],
                              kwargs...)
     return plots[var]
 end
 
-function plot_altpolicies{T<:AbstractModel}(models::Vector{T}, vars::Vector{Symbol}, class::Symbol,
+function plot_altpolicies(models::Vector{T}, vars::Vector{Symbol}, class::Symbol,
                                             cond_type::Symbol;
                                             forecast_string::String = "",
                                             altpol_string::String = "",
@@ -56,7 +56,7 @@ function plot_altpolicies{T<:AbstractModel}(models::Vector{T}, vars::Vector{Symb
                                             plotroot::String = figurespath(m, "forecast"),
                                             titles::Vector{String} = String[],
                                             verbose::Symbol = :low,
-                                            kwargs...)
+                                            kwargs...) where {T<:AbstractModel}
     # Determine output_vars
     if untrans && fourquarter
         error("Only one of untrans or fourquarter can be true")

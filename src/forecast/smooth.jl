@@ -55,7 +55,7 @@ m <= Setting(:forecast_smoother, :koopman_smoother))
 before calling `smooth`.
 """
 function smooth(m::AbstractModel, df::DataFrame, system::System{S},
-    s_0::Vector{S} = Vector{S}(0), P_0::Matrix{S} = Matrix{S}(0, 0);
+    s_0::Vector{S} = Vector{S}(undef, 0), P_0::Matrix{S} = Matrix{S}(undef, 0, 0);
     cond_type::Symbol = :none, draw_states::Bool = false,
     include_presample::Bool = false, in_sample::Bool = true) where {S<:AbstractFloat}
 
@@ -64,7 +64,8 @@ function smooth(m::AbstractModel, df::DataFrame, system::System{S},
     # Partition sample into pre- and post-ZLB regimes
     # Note that the post-ZLB regime may be empty if we do not impose the ZLB
     start_date = max(date_presample_start(m), df[1, :date])
-    regime_inds = zlb_regime_indices(m, data, start_date)
+
+    regime_inds = zlb_regime_indices(m, Matrix(data), start_date)
 
     # Get system matrices for each regime
     TTTs, RRRs, CCCs, QQs, ZZs, DDs, EEs = zlb_regime_matrices(m, system, start_date)
@@ -89,7 +90,7 @@ function smooth(m::AbstractModel, df::DataFrame, system::System{S},
         smoother(regime_inds, data, TTTs, RRRs, CCCs, QQs, ZZs, DDs, EEs,
             s_0, P_0, kal[:s_pred], kal[:P_pred])
     elseif smoother in [carter_kohn_smoother, durbin_koopman_smoother]
-        smoother(regime_inds, data, TTTs, RRRs, CCCs, QQs, ZZs, DDs, EEs,
+        smoother(regime_inds, Matrix(data), TTTs, RRRs, CCCs, QQs, ZZs, DDs, EEs,
             s_0, P_0; draw_states = draw_states)
     else
         error("Invalid smoother: $(forecast_smoother(m))")

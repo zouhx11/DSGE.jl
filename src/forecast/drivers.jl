@@ -29,10 +29,10 @@ necessary.
 - `output_vars`
 - `df`
 """
-function prepare_forecast_inputs!{S<:AbstractFloat}(m::AbstractModel{S},
+function prepare_forecast_inputs!(m::AbstractModel{S},
     input_type::Symbol, cond_type::Symbol, output_vars::Vector{Symbol};
-    df::DataFrame = DataFrame(), subset_inds::Range{Int64} = 1:0,
-    verbose::Symbol = :none)
+    df::DataFrame = DataFrame(), subset_inds::UnitRange{Int64} = 1:0,
+    verbose::Symbol = :none) where {S<:AbstractFloat}
 
     # Compute everything that will be needed to plot original output_vars
     output_vars = add_requisite_output_vars(output_vars)
@@ -103,7 +103,7 @@ Load and return parameter draws from Metropolis-Hastings.
   `Vector{Float64}`. Second method returns a `Vector{Vector{Float64}}` of
   parameter draws for this block.
 """
-function load_draws(m::AbstractModel, input_type::Symbol; subset_inds::Range{Int64} = 1:0,
+function load_draws(m::AbstractModel, input_type::Symbol; subset_inds::UnitRange{Int64} = 1:0,
     verbose::Symbol = :low)
 
     input_file_name = get_forecast_input_file(m, input_type)
@@ -142,7 +142,7 @@ function load_draws(m::AbstractModel, input_type::Symbol; subset_inds::Range{Int
     return params
 end
 
-function load_draws(m::AbstractModel, input_type::Symbol, block_inds::Range{Int64};
+function load_draws(m::AbstractModel, input_type::Symbol, block_inds::StepRange{Int64};
                     verbose::Symbol = :low)
 
     input_file_name = get_forecast_input_file(m, input_type)
@@ -155,7 +155,7 @@ function load_draws(m::AbstractModel, input_type::Symbol, block_inds::Range{Int6
             error("Must supply nonempty range of block_inds for this load_draws method")
         else
             ndraws = length(block_inds)
-            params = Vector{Vector{Float64}}(ndraws)
+            params = Vector{Vector{Float64}}(undef, ndraws)
             for (i, j) in zip(1:ndraws, block_inds)
                 params[i] = vec(map(Float64, h5read(input_file_name, "mhparams", (j, :))))
             end
@@ -224,7 +224,7 @@ None. Output is saved to files returned by
 """
 function forecast_one(m::AbstractModel{Float64},
     input_type::Symbol, cond_type::Symbol, output_vars::Vector{Symbol};
-    df::DataFrame = DataFrame(), subset_inds::Range{Int64} = 1:0,
+    df::DataFrame = DataFrame(), subset_inds::UnitRange{Int64} = 1:0,
     forecast_string::String = "", verbose::Symbol = :low)
 
     ### Common Setup
@@ -252,14 +252,14 @@ function forecast_one(m::AbstractModel{Float64},
 
     if input_type in [:mode, :mean, :init]
 
-        tic()
+        time_ns()
 
         params = load_draws(m, input_type; verbose = verbose)
         forecast_output = forecast_one_draw(m, input_type, cond_type, output_vars,
                                             params, df, verbose = verbose)
 
         write_forecast_outputs(m, input_type, output_vars, forecast_output_files,
-                               forecast_output; df = df, block_number = Nullable{Int64}(),
+                               forecast_output; df = df, block_number = Union{Int64, Nothing}(),
                                verbose = verbose)
 
         if VERBOSITY[verbose] >= VERBOSITY[:low]
@@ -288,7 +288,7 @@ function forecast_one(m::AbstractModel{Float64},
                 println()
                 info("Forecasting block $block of $nblocks...")
             end
-            tic()
+            time_ns()
 
             # Get to work!
             params = load_draws(m, input_type, block_inds[block]; verbose = verbose)
@@ -301,11 +301,11 @@ function forecast_one(m::AbstractModel{Float64},
             # Assemble outputs from this block and write to file
             forecast_outputs = convert(Vector{Dict{Symbol, Array{Float64}}}, forecast_outputs)
             forecast_output = assemble_block_outputs(forecast_outputs)
+            
             write_forecast_outputs(m, input_type, output_vars, forecast_output_files,
-                                   forecast_output; df = df, block_number = Nullable(block),
+                                   forecast_output; df = df, block_number = block,
                                    verbose = block_verbose, block_inds = block_inds_thin[block],
                                    subset_inds = subset_inds)
-            gc()
 
             # Calculate time to complete this block, average block time, and
             # expected time to completion

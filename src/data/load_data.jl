@@ -57,7 +57,7 @@ function load_data(m::AbstractModel; cond_type::Symbol = :none, try_disk::Bool =
             cond_levels = load_cond_data_levels(m; verbose=verbose)
             levels, cond_levels = reconcile_column_names(levels, cond_levels)
             levels = vcat(levels, cond_levels)
-            na2nan!(levels)
+            #na2nan!(levels)
         end
         df = transform_data(m, levels; cond_type=cond_type, verbose=verbose)
 
@@ -194,7 +194,7 @@ function load_data_levels(m::AbstractModel; verbose::Symbol=:low)
     end
 
     # turn NAs into NaNs
-    na2nan!(df)
+    #na2nan!(df)
 
     sort!(df, :date)
 
@@ -251,13 +251,13 @@ function load_cond_data_levels(m::AbstractModel; verbose::Symbol=:low)
 
             population_mnemonic = get(parse_population_mnemonic(m)[1])
             rename!(pop_forecast, :POPULATION =>  population_mnemonic)
-            DSGE.na2nan!(pop_forecast)
+            #DSGE.na2nan!(pop_forecast)
             DSGE.format_dates!(:date, pop_forecast)
 
             cond_df = join(cond_df, pop_forecast, on=:date, kind=:left)
 
             # Turn NAs into NaNs
-            na2nan!(cond_df)
+            #na2nan!(cond_df)
             sort!(cond_df, :date)
 
             return cond_df
@@ -416,7 +416,7 @@ Create a `DataFrame` out of the matrix `data`, including a `:date` column
 beginning in `start_date`.  Variable names and indices are obtained from
 `m.observables`.
 """
-function data_to_df{T<:AbstractFloat}(m::AbstractModel, data::Matrix{T}, start_date::Date)
+function data_to_df(m::AbstractModel, data::Matrix{T}, start_date::Date) where {T<:AbstractFloat}
     # Check number of rows = number of observables
     nobs = n_observables(m)
     @assert size(data, 1) == nobs "Number of rows of data matrix ($(size(data, 1))) must equal number of observables ($nobs)"
@@ -488,8 +488,7 @@ function read_population_data(filename::String; verbose::Symbol = :low)
     end
 
     df = CSV.read(filename)
-
-    DSGE.na2nan!(df)
+    #DSGE.na2nan!(df)
     DSGE.format_dates!(:date, df)
     sort!(df, :date)
 
@@ -529,7 +528,7 @@ function read_population_forecast(filename::String, population_mnemonic::Symbol;
         df = CSV.read(filename)
 
         rename!(df, :POPULATION => population_mnemonic)
-        DSGE.na2nan!(df)
+        #DSGE.na2nan!(df)
         DSGE.format_dates!(:date, df)
         sort!(df, :date)
 

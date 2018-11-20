@@ -73,7 +73,6 @@ function compute_meansbands(m::AbstractModel, input_type::Symbol,
                                 population_forecast = population_forecast,
                                 verbose = verbose,
                                 kwargs...)
-        gc()
     end
 
     if VERBOSITY[verbose] >= VERBOSITY[:low]
@@ -180,6 +179,7 @@ function compute_meansbands(m::AbstractModel, input_type::Symbol, cond_type::Sym
                             compute_shockdec_bands::Bool = false)
 
     # Return only one set of bands if we read in only one draw
+
     if input_type in [:init, :mode, :mean]
         density_bands = [.5]
     end
@@ -192,7 +192,7 @@ function compute_meansbands(m::AbstractModel, input_type::Symbol, cond_type::Sym
     fcast_series, transform = read_forecast_output(m, input_type, cond_type,
                                                    output_var, var_name, shock_name,
                                                    forecast_string = forecast_string)
-
+                         
     # Reverse transform
     y0_index = get_y0_index(m, product)
     data = class == :obs ? convert(Vector{Float64}, df[var_name]) : fill(NaN, size(df, 1))

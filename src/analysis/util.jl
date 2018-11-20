@@ -4,15 +4,15 @@
 
 function get_class(output_var::Symbol)
     s = string(output_var)
-    if contains(s, "pseudo")
+    if occursin("pseudo", s)
         :pseudo
-    elseif contains(s, "obs")
+    elseif occursin("obs", s)
         :obs
-    elseif contains(s, "state")
+    elseif occursin("state", s)
         :states
-    elseif contains(s, "stdshock")
+    elseif occursin("stdshock", s)
         :stdshocks
-    elseif contains(s, "shock")
+    elseif occursin("shock", s)
         :shocks
     else
         error("Invalid output_var: " * s)
@@ -21,39 +21,39 @@ end
 
 function get_product(output_var::Symbol)
     s = string(output_var)
-    if contains(s, "bddhistforecast4q")
+    if occursin("bddhistforecast4q", s)
         :bddhistforecast4q
-    elseif contains(s, "histforecast4q")
+    elseif occursin("histforecast4q", s)
         :histforecast4q
-    elseif contains(s, "bddhistforecast")
+    elseif occursin("bddhistforecast", s)
         :bddhistforecast
-    elseif contains(s, "histforecast")
+    elseif occursin("histforecast", s)
         :histforecast
-    elseif contains(s, "hist4q")
+    elseif occursin("hist4q", s)
         :hist4q
-    elseif contains(s, "histut")
+    elseif occursin("histut", s)
         :histut
-    elseif contains(s, "hist")
+    elseif occursin("hist", s)
         :hist
-    elseif contains(s, "bddforecast4q")
+    elseif occursin("bddforecast4q", s)
         :bddforecast4q
-    elseif contains(s, "forecast4q")
+    elseif occursin("forecast4q", s)
         :forecast4q
-    elseif contains(s, "bddforecastut")
+    elseif occursin("bddforecastut", s)
         :bddforecastut
-    elseif contains(s, "forecastut")
+    elseif occursin("forecastut", s)
         :forecastut
-    elseif contains(s, "bddforecast")
+    elseif occursin("bddforecast", s)
         :bddforecast
-    elseif contains(s, "forecast")
+    elseif occursin("forecast", s)
         :forecast
-    elseif contains(s, "shockdec")
+    elseif occursin("shockdec", s)
         :shockdec
-    elseif contains(s, "dettrend")
+    elseif occursin("dettrend", s)
         :dettrend
-    elseif contains(s, "trend")
+    elseif occursin("trend", s)
         :trend
-    elseif contains(s, "irf")
+    elseif occursin("irf", s)
         :irf
     else
         error("Invalid output_var: " * s)
@@ -236,7 +236,7 @@ function get_population_series(mnemonic::Symbol, population_data::DataFrame,
 
         padding, unpadded_data = reconcile_column_names(padding, unpadded_data)
         padded_data = vcat(padding, unpadded_data)
-        na2nan!(padded_data)
+        #na2nan!(padded_data)
         padded_data
 
     elseif population_forecast[1, :date] <= start_date <= population_forecast[end, :date]
@@ -310,18 +310,18 @@ function get_mb_metadata(m::AbstractModel, input_type::Symbol, cond_type::Symbol
     class   = get_class(output_var)
     product = get_product(output_var)
 
-    metadata = jldopen(forecast_output_file, "r") do jld
-        read_forecast_metadata(jld)
-    end
+    metadata = read_forecast_metadata(forecast_output_file)
 
     class_long       = get_class_longname(class)
+    
     variable_indices = metadata[Symbol(class_long, "_indices")]
     date_indices     = product == :irf ? Dict{Date, Int}() : metadata[:date_indices]
 
     # Make sure date lists are valid. This is vacuously true for and IRFs, which
     # are not time-dependent and hence have empty `date_indices`.
-    date_list          = collect(keys(date_indices))   # unsorted array of actual dates
-    date_indices_order = collect(values(date_indices)) # unsorted array of date indices
+
+    date_list          = keys(date_indices)  # unsorted array of actual dates
+    date_indices_order = values(date_indices) # unsorted array of date indices
     check_consistent_order(date_list, date_indices_order)
 
     mb_metadata = Dict{Symbol,Any}(
@@ -329,8 +329,8 @@ function get_mb_metadata(m::AbstractModel, input_type::Symbol, cond_type::Symbol
                    :cond_type       => cond_type,
                    :product         => product,
                    :class           => class,
-                   :indices         => sort(variable_indices, by = x -> variable_indices[x]),
-                   :date_inds       => sort(date_indices, by = x -> date_indices[x]),
+                   :indices         => variable_indices,
+                   :date_inds       => date_indices,
                    :forecast_string => forecast_string)
 
     if product in [:shockdec, :irf]
@@ -384,13 +384,14 @@ function check_consistent_order(l1, l2)
 
     # cache old pairs in a Dict
     original_pairs = Dict{eltype(l1), eltype(l2)}()
+
     for (i,item) in enumerate(l1)
-        original_pairs[item] = l2[i]
+        original_pairs[item] = collect(l2)[i]
     end
 
     # sort
-    l1_sorted = sort(l1)
-    l2_sorted = sort(l2)
+    l1_sorted = sort(collect(l1))
+    l2_sorted = sort(collect(l2))
 
     # make sure each pair has same pair as before
     for i in 1:length(l1)

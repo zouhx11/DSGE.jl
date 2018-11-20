@@ -18,7 +18,7 @@ computational settings.
   `print=true`.
 - `description::String`: Short description of what the setting is used for.
 """
-type Setting{T}
+mutable struct Setting{T}
     key::Symbol                  # name of setting
     value::T                     # whatever the setting is
     print::Bool                  # whether or not to add this setting to the print
@@ -27,10 +27,10 @@ type Setting{T}
 end
 
 # for printing codes to filename string
-Base.convert{T<:Number, U<:Number}(::Type{T}, s::Setting{U}) = convert(T, s.value)
+Base.convert(::Type{T}, s::Setting{U}) where {T<:Number, U<:Number} = convert(T, s.value)
 Base.convert(::Type{String}, s::Setting{String}) = convert(String, s.value)
 
-Base.promote_rule{T<:Number,U<:Number}(::Type{Setting{T}}, ::Type{U}) = promote_rule(T,U)
+Base.promote_rule(::Type{Setting{T}}, ::Type{U}) where {T<:Number,U<:Number} = promote_rule(T,U)
 Base.promote_rule(::Type{Setting{String}}, ::Type{String}) = promote_rule(String, String)
 Base.promote_rule(::Type{Setting{Bool}}, ::Type{Bool}) = promote_rule(Bool, Bool)
 
@@ -38,7 +38,7 @@ Base.string(s::Setting{String}) = string(s.value)
 
 to_filestring(s::Setting) = string(s.code) * "=" * string(s.value)
 
-# key, value constructor
+# key, value conmutable structor
 Setting(key, value) = Setting(key, value, false, "", "")
 Setting(key, value, description) = Setting(key, value, false, "", description)
 
@@ -91,7 +91,7 @@ function update!(a::Setting, b::Setting)
     # b overrides the print boolean of a if:
     # - a.print is false and b.print is true.
     # - a.print is true, b.print is false, and b.code is non-empty.
-    # We must be able to tell if b was created via a constructor like `Setting(:key,
+    # We must be able to tell if b was created via a conmutable structor like `Setting(:key,
     # value)`, in which case the print, code, and description values are set to defaults. We
     # do not overwrite if we can't determine whether or not those fields are just the
     # defaults.
